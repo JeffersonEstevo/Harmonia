@@ -50,13 +50,13 @@ Cada fase é pensada para ser pedida a uma LLM em pedaços pequenos (uma tarefa 
 - [x] `README.md` + `Makefile` com instruções/atalhos de setup local (com e sem Docker)
 
 ### Fase 1 — Upload & Waveform (sem análise ainda)
-- [ ] Componente de upload drag-and-drop + fallback de input nativo
-- [ ] Validação client-side (tipo de arquivo, tamanho, sniff de magic bytes)
-- [ ] Decodificação do áudio via Web Audio API (`AudioContext.decodeAudioData`)
-- [ ] Renderer de waveform em Canvas (peaks min/max, zoom básico)
-- [ ] Transporte básico: play/pause/stop sincronizado ao `AudioContext.currentTime`
-- [ ] Scrub por clique/arraste na waveform
-- [ ] Layout responsivo do shell da aplicação (desktop/tablet/mobile)
+- [x] Componente de upload drag-and-drop + fallback de input nativo
+- [x] Validação client-side (tipo de arquivo, tamanho, sniff de magic bytes)
+- [x] Decodificação do áudio via Web Audio API (`AudioContext.decodeAudioData`)
+- [x] Renderer de waveform em Canvas (peaks min/max, zoom básico)
+- [x] Transporte básico: play/pause/stop sincronizado ao `AudioContext.currentTime`
+- [x] Scrub por clique/arraste na waveform
+- [x] Layout responsivo do shell da aplicação (desktop/tablet/mobile)
 
 ### Fase 2 — Waveform Avançada
 - [ ] Zoom contínuo (scroll/pinch) com pirâmide de resolução de peaks
@@ -132,9 +132,9 @@ Preencha os colchetes antes de colar. Quanto mais específica a "PRÓXIMA TAREFA
 
 > **Atualize esta seção a cada sessão.** É a parte que realmente muda com o tempo.
 
-- **Fase atual:** Fase 0 (quase concluída)
-- **Última tarefa concluída:** Scaffold real de `apps/web` (Vite+React+TS) e `services/api-gateway` (Node+Express+TS com `/health`), `packages/api-contracts` (OpenAPI mínimo), lint/CI/docker-compose/Makefile/README — tudo builda, linta e passa nos testes
-- **Próxima tarefa:** `git init` na raiz de `harmonia/` + primeiro commit; depois iniciar Fase 1 (upload + waveform básica em `apps/web`)
+- **Fase atual:** Fase 1 concluída — pronta para Fase 2
+- **Última tarefa concluída:** Upload (drag-drop + validação por magic bytes), decodificação via Web Audio API, waveform em Canvas (pirâmide de picos, zoom por scroll, scrub por clique/arraste), transporte play/pause/stop com relógio no `AudioContext`, shell responsivo. 18 testes automatizados passando (17 web + 1 gateway), lint e build limpos.
+- **Próxima tarefa:** Fase 2 — minimap/overview, loop regions, velocidade de reprodução variável com preservação de pitch, atalhos de teclado
 - **Bloqueios/pendências:** nenhum
 - **Última atualização:** 2026-09-20
 

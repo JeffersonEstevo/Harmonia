@@ -1,44 +1,52 @@
 import { useEffect, useState } from "react";
-import { fetchHealth, type HealthResponse } from "./lib/apiClient";
+import { usePlayerStore } from "./stores/playerStore";
+import { UploadZone } from "./features/upload/UploadZone";
+import { WaveformCanvas } from "./features/waveform/WaveformCanvas";
+import { TransportControls } from "./features/transport/TransportControls";
+import { fetchHealth } from "./lib/apiClient";
 import "./App.css";
 
-/**
- * Shell mínimo do app — Fase 0.
- * Objetivo único aqui: provar que apps/web consegue falar com services/api-gateway.
- * A UI real (upload, waveform, overlays) entra nas Fases 1–3, conforme docs/PROGRESS.md.
- */
-function App() {
-  const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+function GatewayStatusBadge() {
+  const [ok, setOk] = useState<boolean | null>(null);
 
   useEffect(() => {
     fetchHealth()
-      .then(setHealth)
-      .catch((err: Error) => setError(err.message));
+      .then(() => setOk(true))
+      .catch(() => setOk(false));
   }, []);
 
+  if (ok === null) return null;
   return (
-    <main className="app-shell">
-      <h1>Harmonia</h1>
-      <p>Fase 0 — Setup do Projeto</p>
+    <span className={`gateway-badge ${ok ? "gateway-badge--ok" : "gateway-badge--down"}`}>
+      {ok ? "gateway conectado" : "gateway offline"}
+    </span>
+  );
+}
 
-      <section className="status-card">
-        <h2>Status do API Gateway</h2>
-        {health && (
-          <p>
-            ✅ {health.service} v{health.version} — {health.status}
-          </p>
+function App() {
+  const status = usePlayerStore((s) => s.status);
+  const fileName = usePlayerStore((s) => s.fileName);
+  const isReady = status === "ready";
+
+  return (
+    <div className="app-shell">
+      <header className="app-header">
+        <h1 className="app-header__title">Harmonia</h1>
+        <GatewayStatusBadge />
+      </header>
+
+      <main className="app-main">
+        {!isReady && <UploadZone />}
+
+        {isReady && (
+          <section className="track-view">
+            <p className="track-view__filename">{fileName}</p>
+            <WaveformCanvas />
+            <TransportControls />
+          </section>
         )}
-        {error && (
-          <p>
-            ⚠️ Não foi possível falar com o gateway ({error}). Rode{" "}
-            <code>make dev</code> ou <code>docker compose up</code> na raiz
-            do projeto para subir o serviço.
-          </p>
-        )}
-        {!health && !error && <p>Verificando...</p>}
-      </section>
-    </main>
+      </main>
+    </div>
   );
 }
 
