@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: Harmonia API
+  version: 0.0.1
+  description: >
+    Contrato de API do api-gateway. Fonte única da verdade dos endpoints —
+    consulte docs/SPEC.md §6.6 para o design completo planejado (tracks,
+    analysis, export, share). Este arquivo cresce incrementalmente junto
+    com o roadmap em docs/PROGRESS.md.
+
+servers:
+  - url: http://localhost:4000
+    description: Ambiente local de desenvolvimento
+
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Health check do api-gateway
+      tags: [system]
+      responses:
+        "200":
+          description: Serviço operante
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status, service, version, timestamp]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        service:
+          type: string
+          example: api-gateway
+        version:
+          type: string
+          example: "0.0.0"
+        timestamp:
+          type: string
+          format: date-time

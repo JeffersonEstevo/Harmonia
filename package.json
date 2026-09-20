@@ -1,0 +1,21 @@
+{
+  "name": "harmonia",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Harmonia — plataforma web de análise musical de alta precisão",
+  "workspaces": [
+    "apps/*",
+    "services/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w apps/web",
+    "dev:gateway": "npm run dev -w services/api-gateway",
+    "lint": "npm run lint --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3"
+  }
+}

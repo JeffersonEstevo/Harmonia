@@ -1,0 +1,22 @@
+# Orquestra os serviços localmente para desenvolvimento (opcional — ver
+# docs/STRUCTURE.md §3 para a variante sem Docker, que usa o Makefile direto).
+services:
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      - api-gateway
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - NODE_ENV=development
+      - CORS_ORIGIN=http://localhost:5173

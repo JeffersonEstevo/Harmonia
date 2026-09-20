@@ -1,0 +1,45 @@
+# --- Node / TypeScript (apps/web, services/api-gateway) ---
+node_modules/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+coverage/
+
+# --- Python (services/analysis-service, chord-recognition-service, key-tempo-service) ---
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# --- Rust / WASM (wasm-dsp) ---
+target/
+*.wasm
+!apps/web/wasm/*.wasm
+
+# --- Env / segredos ---
+.env
+.env.local
+!.env.example
+
+# --- Sistema / editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- Logs ---
+*.log
+npm-debug.log*
+
+# --- Modelos treinados grandes (considerar Git LFS em vez de versionar direto) ---
+services/chord-recognition-service/models/*.pt
+services/chord-recognition-service/models/*.onnx
+
+
+# Pastas e arquivos pessoais
+My_notes
+utils
