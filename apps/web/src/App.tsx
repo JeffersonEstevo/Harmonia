@@ -3,6 +3,7 @@ import { usePlayerStore } from "./stores/playerStore";
 import { UploadZone } from "./features/upload/UploadZone";
 import { WaveformCanvas } from "./features/waveform/WaveformCanvas";
 import { TransportControls } from "./features/transport/TransportControls";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { fetchHealth } from "./lib/apiClient";
 import "./App.css";
 
@@ -28,6 +29,8 @@ function App() {
   const fileName = usePlayerStore((s) => s.fileName);
   const isReady = status === "ready";
 
+  useKeyboardShortcuts(isReady);
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -43,6 +46,10 @@ function App() {
             <p className="track-view__filename">{fileName}</p>
             <WaveformCanvas />
             <TransportControls />
+            <p className="track-view__hint">
+              Espaço/K reproduz · J/L pula ±5s · Shift+arraste cria um loop · I/O define
+              início/fim do loop no playhead · +/- dá zoom
+            </p>
           </section>
         )}
       </main>

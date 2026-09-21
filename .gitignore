@@ -39,7 +39,6 @@ npm-debug.log*
 services/chord-recognition-service/models/*.pt
 services/chord-recognition-service/models/*.onnx
 
-
 # Pastas e arquivos pessoais
 My_notes
 utils

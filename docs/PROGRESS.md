@@ -59,11 +59,11 @@ Cada fase é pensada para ser pedida a uma LLM em pedaços pequenos (uma tarefa 
 - [x] Layout responsivo do shell da aplicação (desktop/tablet/mobile)
 
 ### Fase 2 — Waveform Avançada
-- [ ] Zoom contínuo (scroll/pinch) com pirâmide de resolução de peaks
-- [ ] Minimap/overview além da waveform principal
-- [ ] Loop regions (definir, arrastar, redimensionar; snap a beat grid quando existir)
-- [ ] Velocidade de reprodução variável com preservação de pitch (`AudioWorklet` + WSOLA/phase vocoder)
-- [ ] Atalhos de teclado (space, J/K/L, +/-)
+- [x] Zoom contínuo (scroll/pinch) com pirâmide de resolução de peaks
+- [x] Minimap/overview além da waveform principal
+- [x] Loop regions (definir, arrastar, redimensionar; snap a beat grid quando existir — snap fica pra Fase 3, quando a beat grid existir)
+- [x] Velocidade de reprodução variável com preservação de pitch (`AudioWorklet` + OLA)
+- [x] Atalhos de teclado (space, J/K/L, +/-, além de I/O pra loop)
 
 ### Fase 3 — Análise Tier 1 (client-side, WASM)
 - [ ] Módulo WASM: FFT/CQT/chroma (Rust ou C++ via Emscripten)
@@ -132,10 +132,10 @@ Preencha os colchetes antes de colar. Quanto mais específica a "PRÓXIMA TAREFA
 
 > **Atualize esta seção a cada sessão.** É a parte que realmente muda com o tempo.
 
-- **Fase atual:** Fase 1 concluída — pronta para Fase 2
-- **Última tarefa concluída:** Upload (drag-drop + validação por magic bytes), decodificação via Web Audio API, waveform em Canvas (pirâmide de picos, zoom por scroll, scrub por clique/arraste), transporte play/pause/stop com relógio no `AudioContext`, shell responsivo. 18 testes automatizados passando (17 web + 1 gateway), lint e build limpos.
-- **Próxima tarefa:** Fase 2 — minimap/overview, loop regions, velocidade de reprodução variável com preservação de pitch, atalhos de teclado
-- **Bloqueios/pendências:** nenhum
+- **Fase atual:** Fase 2 concluída — pronta para Fase 3
+- **Última tarefa concluída:** Minimapa (overview + reposicionamento), loop regions (Shift+arraste cria, arraste na borda redimensiona, duplo-clique/botão limpa, loop nativo sample-accurate via `AudioBufferSourceNode`), velocidade de reprodução 0.25x–2x com pitch preservado (OLA via `AudioWorkletNode`), zoom por pinça (touch) e atalhos de teclado completos (Space/K, J/L, I/O, +/-). 18 testes automatizados passando, lint e build limpos.
+- **Próxima tarefa:** Fase 3 — detecção de acordes Nível 1 client-side via WASM (maior/menor/7ª), BPM/tonalidade básicos, overlays na waveform
+- **Bloqueios/pendências:** nenhum. Nota: a lógica de DSP dentro do `AudioWorklet` (time-stretch) não tem cobertura de teste automatizado — `jsdom` não implementa Web Audio API, então precisa de QA manual (ou testes de navegador tipo Playwright, ainda não configurados)
 - **Última atualização:** 2026-09-20
 
 ---

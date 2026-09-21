@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { AudioEngine, type PlaybackState } from "../lib/audio/AudioEngine";
+import { AudioEngine, type PlaybackState, type LoopRegion } from "../lib/audio/AudioEngine";
 import { buildPeakPyramid, type PeakPyramid } from "../lib/waveform/peaks";
 import { validateAudioFile, validateDuration } from "../lib/validation/audioFile";
 
@@ -17,6 +17,9 @@ interface PlayerState {
   peaks: PeakPyramid | null;
   playbackState: PlaybackState;
   errorMessage: string | null;
+  playbackRate: number;
+  loopRegion: LoopRegion | null;
+  loopEnabled: boolean;
 
   engine: AudioEngine;
 
@@ -25,6 +28,9 @@ interface PlayerState {
   pause: () => void;
   stop: () => void;
   seek: (seconds: number) => void;
+  setPlaybackRate: (rate: number) => void;
+  setLoopRegion: (region: LoopRegion | null) => void;
+  toggleLoopEnabled: () => void;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => {
@@ -38,6 +44,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     peaks: null,
     playbackState: "idle",
     errorMessage: null,
+    playbackRate: 1,
+    loopRegion: null,
+    loopEnabled: false,
     engine,
 
     async loadFile(file: File) {
@@ -66,6 +75,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
           status: "ready",
           duration: audioBuffer.duration,
           peaks,
+          loopRegion: null,
+          loopEnabled: false,
+          playbackRate: 1,
         });
       } catch {
         set({
@@ -77,7 +89,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
 
     play() {
-      get().engine.play();
+      void get().engine.play();
     },
     pause() {
       get().engine.pause();
@@ -87,6 +99,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
     seek(seconds: number) {
       get().engine.seek(seconds);
+    },
+    setPlaybackRate(rate: number) {
+      void get().engine.setPlaybackRate(rate);
+      set({ playbackRate: rate });
+    },
+    setLoopRegion(region: LoopRegion | null) {
+      get().engine.setLoopRegion(region);
+      set({ loopRegion: region, loopEnabled: region !== null });
+      get().engine.setLoopEnabled(region !== null);
+    },
+    toggleLoopEnabled() {
+      const next = !get().loopEnabled;
+      get().engine.setLoopEnabled(next);
+      set({ loopEnabled: next });
     },
   };
 });

@@ -87,3 +87,8 @@ export function pickLevelForZoom(
   }
   return chosen;
 }
+
+/** Nível mais "grosso" disponível — usado pelo minimapa, que sempre mostra a faixa inteira. */
+export function getOverviewLevel(pyramid: PeakPyramid): PeakLevel {
+  return pyramid.levels[pyramid.levels.length - 1];
+}

@@ -1,8 +1,14 @@
 .transport {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.transport__row {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  margin-top: 0.75rem;
 }
 
 .transport__button {
@@ -30,6 +36,45 @@
   color: var(--accent);
 }
 
+.transport__button--small {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8rem;
+}
+
+.transport__button--active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.transport__rate {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.transport__rate select {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.transport__row--loop {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.transport__loop-range {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
 .time-readout {
   margin-left: auto;
   font-family: var(--font-mono);
@@ -43,7 +88,7 @@
 }
 
 @media (max-width: 767px) {
-  .transport {
+  .transport__row {
     flex-wrap: wrap;
   }
 

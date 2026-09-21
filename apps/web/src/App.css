@@ -52,6 +52,13 @@
   color: var(--text-muted);
 }
 
+.track-view__hint {
+  margin: 0.75rem 0 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  opacity: 0.75;
+}
+
 @media (max-width: 767px) {
   .app-shell {
     padding: 1rem 1rem 5rem; /* espaço extra embaixo pra não colidir com barras do sistema em mobile */
