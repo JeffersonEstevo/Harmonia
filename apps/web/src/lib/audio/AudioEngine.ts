@@ -108,9 +108,18 @@ export class AudioEngine {
     if (this.state !== "playing") return this.startOffset;
 
     const elapsedRealTime = this.context.currentTime - this.startedAtContextTime;
-    // cada segundo real consome `rate` segundos de faixa — vale tanto pro
-    // caminho nativo (rate sempre 1 ali) quanto pro caminho com worklet.
-    return Math.min(this.startOffset + elapsedRealTime * this.rate, this.duration);
+    let raw = this.startOffset + elapsedRealTime * this.rate;
+
+    // a fonte nativa (ou o worklet) "volta" sozinha pro início do loop —
+    // essa fórmula precisa saber disso, senão o cursor visual continua
+    // subindo linearmente e sai da região do loop mesmo com o áudio
+    // corretamente repetindo por baixo.
+    if (this.loopEnabled && this.loop && this.loop.end > this.loop.start && raw >= this.loop.end) {
+      const span = this.loop.end - this.loop.start;
+      raw = this.loop.start + ((raw - this.loop.start) % span);
+    }
+
+    return Math.min(raw, this.duration);
   }
 
   async setPlaybackRate(rate: number): Promise<void> {
@@ -124,11 +133,24 @@ export class AudioEngine {
     this.rate = clamped;
     this.startOffset = position;
 
-    if (wasPlaying) await this.play();
+    if (wasPlaying) {
+      // stopAllSources() só para o áudio — o estado interno continua
+      // "playing" até aqui. Sem resetá-lo, play() below acha que já está
+      // tocando (é a guarda `if (this.state === "playing") return`) e
+      // ignora silenciosamente o pedido de reiniciar com a nova taxa.
+      this.state = "paused";
+      await this.play();
+    }
   }
 
+  /**
+   * Define a região de loop e já habilita/desabilita o loop de forma atômica
+   * (uma região não-nula habilita automaticamente; `null` desabilita e limpa).
+   * Evita a janela de inconsistência de ter que chamar setLoopEnabled à parte.
+   */
   setLoopRegion(region: LoopRegion | null): void {
     this.loop = region;
+    this.loopEnabled = region !== null && region.end > region.start;
     this.applyLoopToActiveSource();
   }
 
@@ -161,6 +183,16 @@ export class AudioEngine {
   async play(): Promise<void> {
     if (!this.context || !this.buffer) return;
     if (this.state === "playing") return;
+
+    // O navegador pode suspender o AudioContext quando não há fontes ativas
+    // (economia de energia) — isso acontece tipicamente logo após um pause().
+    // Sem isso, o áudio fica mudo até algo (como um seek) forçar um novo
+    // grafo, mesmo com o relógio (currentTime) parecendo continuar OK.
+    try {
+      await this.context.resume();
+    } catch (err) {
+      console.warn("[AudioEngine] falha ao retomar o AudioContext:", err);
+    }
 
     this.stopAllSources();
 
@@ -244,6 +276,11 @@ export class AudioEngine {
     }
 
     if (wasPlaying) {
+      // mesmo problema de setPlaybackRate: sem isso, play() acha que já
+      // está tocando e não reagenda a fonte — o cursor volta a andar
+      // (getCurrentTime usa o novo startOffset normalmente), mas o áudio
+      // fica mudo até um pause/play manual "destravar" o estado.
+      this.state = "paused";
       void this.play();
     } else {
       this.setState(this.state === "idle" ? "idle" : "paused");

@@ -107,7 +107,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     setLoopRegion(region: LoopRegion | null) {
       get().engine.setLoopRegion(region);
       set({ loopRegion: region, loopEnabled: region !== null });
-      get().engine.setLoopEnabled(region !== null);
     },
     toggleLoopEnabled() {
       const next = !get().loopEnabled;
