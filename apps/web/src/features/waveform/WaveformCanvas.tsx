@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePlayerStore } from "../../stores/playerStore";
 import { pickLevelForZoom, type PeakPyramid } from "../../lib/waveform/peaks";
 import { useAnimationFrame } from "../../hooks/useAnimationFrame";
@@ -12,6 +12,21 @@ interface ViewWindow {
 
 const MIN_VISIBLE_SAMPLES = 2_000; // trava de zoom máximo
 const EDGE_GRAB_PX = 8; // distância em pixels pra "agarrar" a borda do loop
+const CHORD_STRIP_HEIGHT = 22; // faixa reservada embaixo do canvas pros blocos de acorde
+
+const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
+/** Cor por fundamental do acorde (12 matizes) — a qualidade (m/7) fica só no texto,
+ * cor nunca é o único codificador de informação (docs/SPEC.md §4.1 acessibilidade). */
+function chordColor(chordSymbol: string): string {
+  const root = chordSymbol.startsWith("C#") || chordSymbol.startsWith("D#") ||
+    chordSymbol.startsWith("F#") || chordSymbol.startsWith("G#") || chordSymbol.startsWith("A#")
+    ? chordSymbol.slice(0, 2)
+    : chordSymbol.slice(0, 1);
+  const rootIndex = Math.max(0, NOTE_NAMES.indexOf(root));
+  const hue = (rootIndex * 360) / 12;
+  return `hsla(${hue}, 45%, 58%, 0.55)`;
+}
 
 function drawWaveform(
   ctx: CanvasRenderingContext2D,
@@ -21,12 +36,15 @@ function drawWaveform(
   view: ViewWindow,
   playheadSample: number | null,
   loopSamples: { start: number; end: number } | null,
+  chordSegments: { chord: string; startSample: number; endSample: number }[],
+  beatGridSamples: number[],
 ) {
   ctx.clearRect(0, 0, widthCss, heightCss);
 
+  const waveformHeight = heightCss - CHORD_STRIP_HEIGHT;
   const level = pickLevelForZoom(pyramid, view.end - view.start, widthCss);
-  const midY = heightCss / 2;
-  const scaleY = heightCss / 2;
+  const midY = waveformHeight / 2;
+  const scaleY = waveformHeight / 2;
   const samplesPerPixel = (view.end - view.start) / widthCss;
 
   // região de loop, desenhada ANTES da waveform (fica "atrás")
@@ -42,6 +60,20 @@ function drawWaveform(
     ctx.lineTo(x1 + 0.5, heightCss);
     ctx.moveTo(x2 + 0.5, 0);
     ctx.lineTo(x2 + 0.5, heightCss);
+    ctx.stroke();
+  }
+
+  // grade de batida (BPM estimado) — marcações finas e discretas, só na área da waveform
+  if (beatGridSamples.length > 0) {
+    ctx.strokeStyle = "rgba(237, 237, 240, 0.08)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (const sample of beatGridSamples) {
+      if (sample < view.start || sample > view.end) continue;
+      const x = (sample - view.start) / samplesPerPixel;
+      ctx.moveTo(x + 0.5, 0);
+      ctx.lineTo(x + 0.5, waveformHeight);
+    }
     ctx.stroke();
   }
 
@@ -78,6 +110,34 @@ function drawWaveform(
     ctx.lineTo(x, heightCss);
     ctx.stroke();
   }
+
+  // faixa de acordes — timeline condensada, sempre visível, ver docs/SPEC.md §4.4
+  ctx.textBaseline = "middle";
+  ctx.font = "11px var(--font-mono), monospace";
+  for (const seg of chordSegments) {
+    const x1 = (seg.startSample - view.start) / samplesPerPixel;
+    const x2 = (seg.endSample - view.start) / samplesPerPixel;
+    if (x2 < 0 || x1 > widthCss) continue;
+
+    const blockX = Math.max(0, x1);
+    const blockWidth = Math.min(widthCss, x2) - blockX;
+    if (blockWidth <= 0) continue;
+
+    ctx.fillStyle = chordColor(seg.chord);
+    ctx.fillRect(blockX, waveformHeight, blockWidth, CHORD_STRIP_HEIGHT);
+
+    if (blockWidth > 18) {
+      ctx.fillStyle = "rgba(13, 13, 16, 0.85)";
+      ctx.fillText(seg.chord, blockX + 4, waveformHeight + CHORD_STRIP_HEIGHT / 2 + 1);
+    }
+  }
+
+  ctx.strokeStyle = "var(--border, rgba(255,255,255,0.1))";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, waveformHeight + 0.5);
+  ctx.lineTo(widthCss, waveformHeight + 0.5);
+  ctx.stroke();
 }
 
 type DragMode =
@@ -99,6 +159,25 @@ export function WaveformCanvas() {
   const playbackState = usePlayerStore((s) => s.playbackState);
   const loopRegion = usePlayerStore((s) => s.loopRegion);
   const setLoopRegion = usePlayerStore((s) => s.setLoopRegion);
+  const chordSegments = usePlayerStore((s) => s.chordSegments);
+  const beatGrid = usePlayerStore((s) => s.beatGrid);
+
+  // recalcula só quando a análise muda (ou o sample rate), não a cada frame
+  const chordSegmentsInSamples = useMemo(
+    () =>
+      peaks
+        ? chordSegments.map((seg) => ({
+            chord: seg.chord,
+            startSample: seg.onset * peaks.sampleRate,
+            endSample: seg.offset * peaks.sampleRate,
+          }))
+        : [],
+    [chordSegments, peaks],
+  );
+  const beatGridSamples = useMemo(
+    () => (peaks ? beatGrid.map((t) => t * peaks.sampleRate) : []),
+    [beatGrid, peaks],
+  );
 
   const [view, setView] = useState<ViewWindow>({ start: 0, end: 0 });
 
@@ -329,7 +408,18 @@ export function WaveformCanvas() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const playheadSample = engine.getCurrentTime() * peaks.sampleRate;
-    drawWaveform(ctx, widthCss, heightCss, peaks, viewRef.current, playheadSample, loopSamples);
+
+    drawWaveform(
+      ctx,
+      widthCss,
+      heightCss,
+      peaks,
+      viewRef.current,
+      playheadSample,
+      loopSamples,
+      chordSegmentsInSamples,
+      beatGridSamples,
+    );
   }, Boolean(peaks));
 
   if (!peaks) return null;

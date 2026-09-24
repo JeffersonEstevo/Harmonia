@@ -24,6 +24,34 @@ function GatewayStatusBadge() {
   );
 }
 
+function AnalysisStatusLine() {
+  const analysisStatus = usePlayerStore((s) => s.analysisStatus);
+  const analysisError = usePlayerStore((s) => s.analysisError);
+  const bpm = usePlayerStore((s) => s.bpm);
+  const chordSegments = usePlayerStore((s) => s.chordSegments);
+
+  if (analysisStatus === "analyzing") {
+    return <span className="analysis-status analysis-status--busy">Analisando acordes e tempo…</span>;
+  }
+  if (analysisStatus === "error") {
+    return (
+      <span className="analysis-status">
+        Análise indisponível para esta faixa{analysisError ? ` (${analysisError})` : ""}.
+      </span>
+    );
+  }
+  if (analysisStatus === "done") {
+    const bpmLabel = bpm ? `${bpm} BPM` : "BPM não detectado";
+    return (
+      <span className="analysis-status">
+        {bpmLabel} · {chordSegments.length} acorde{chordSegments.length === 1 ? "" : "s"} detectado
+        {chordSegments.length === 1 ? "" : "s"}
+      </span>
+    );
+  }
+  return null;
+}
+
 function App() {
   const status = usePlayerStore((s) => s.status);
   const fileName = usePlayerStore((s) => s.fileName);
@@ -44,6 +72,7 @@ function App() {
         {isReady && (
           <section className="track-view">
             <p className="track-view__filename">{fileName}</p>
+            <AnalysisStatusLine />
             <WaveformCanvas />
             <TransportControls />
             <p className="track-view__hint">

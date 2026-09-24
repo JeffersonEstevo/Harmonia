@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { AudioEngine, type PlaybackState, type LoopRegion } from "../lib/audio/AudioEngine";
 import { buildPeakPyramid, type PeakPyramid } from "../lib/waveform/peaks";
 import { validateAudioFile, validateDuration } from "../lib/validation/audioFile";
+import { analyzeTrack, type ChordSegment } from "../lib/analysis/analysisClient";
 
 /**
  * Estado GROSSO da faixa carregada — muda algumas vezes por sessão, não
@@ -9,6 +10,7 @@ import { validateAudioFile, validateDuration } from "../lib/validation/audioFile
  * ver docs/SPEC.md §4.3 e o comentário em lib/audio/AudioEngine.ts.
  */
 export type LoadStatus = "idle" | "validating" | "decoding" | "ready" | "error";
+export type AnalysisStatus = "idle" | "analyzing" | "done" | "error";
 
 interface PlayerState {
   status: LoadStatus;
@@ -20,6 +22,12 @@ interface PlayerState {
   playbackRate: number;
   loopRegion: LoopRegion | null;
   loopEnabled: boolean;
+
+  analysisStatus: AnalysisStatus;
+  analysisError: string | null;
+  chordSegments: ChordSegment[];
+  bpm: number | null;
+  beatGrid: number[];
 
   engine: AudioEngine;
 
@@ -47,10 +55,24 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     playbackRate: 1,
     loopRegion: null,
     loopEnabled: false,
+    analysisStatus: "idle",
+    analysisError: null,
+    chordSegments: [],
+    bpm: null,
+    beatGrid: [],
     engine,
 
     async loadFile(file: File) {
-      set({ status: "validating", errorMessage: null, fileName: file.name });
+      set({
+        status: "validating",
+        errorMessage: null,
+        fileName: file.name,
+        analysisStatus: "idle",
+        analysisError: null,
+        chordSegments: [],
+        bpm: null,
+        beatGrid: [],
+      });
 
       const validation = await validateAudioFile(file);
       if (!validation.ok) {
@@ -70,7 +92,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
           return;
         }
 
-        const peaks = buildPeakPyramid(audioBuffer.getChannelData(0), audioBuffer.sampleRate);
+        const channelData = audioBuffer.getChannelData(0);
+        const peaks = buildPeakPyramid(channelData, audioBuffer.sampleRate);
         set({
           status: "ready",
           duration: audioBuffer.duration,
@@ -79,6 +102,24 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
           loopEnabled: false,
           playbackRate: 1,
         });
+
+        // análise Nível 1 roda em background (Web Worker) e popula
+        // progressivamente — não bloqueia upload/waveform/reprodução,
+        // ver docs/SPEC.md §2.1 "latência percebida baixa".
+        set({ analysisStatus: "analyzing" });
+        analyzeTrack(channelData, audioBuffer.sampleRate, audioBuffer.duration)
+          .then((result) => {
+            set({
+              analysisStatus: "done",
+              chordSegments: result.chordSegments,
+              bpm: result.bpm,
+              beatGrid: result.beatGrid,
+            });
+          })
+          .catch((err) => {
+            console.warn("[analysis] falhou:", err);
+            set({ analysisStatus: "error", analysisError: err instanceof Error ? err.message : String(err) });
+          });
       } catch {
         set({
           status: "error",

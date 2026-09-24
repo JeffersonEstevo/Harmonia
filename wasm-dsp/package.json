@@ -1,0 +1,15 @@
+{
+  "name": "@harmonia/wasm-dsp",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "description": "DSP client-side (FFT, chromagram, onset/tempo, classificador de acordes Nível 1) compilado para WebAssembly via AssemblyScript",
+  "scripts": {
+    "build": "asc assembly/index.ts --target release --bindings esm -O3 --noAssert -o build/chord-dsp.wasm",
+    "build:debug": "asc assembly/index.ts --target debug --bindings esm -o build/chord-dsp.debug.wasm",
+    "smoke-test": "node smoke-test.mjs"
+  },
+  "devDependencies": {
+    "assemblyscript": "^0.27.36"
+  }
+}

@@ -91,11 +91,12 @@ harmonia/
 │   ├── shared-types/                 # tipos de domínio compartilhados entre frontend e services TS (ChordEvent, etc.)
 │   └── eslint-config/                # config de lint compartilhada (opcional, comum em monorepos JS)
 │
-├── wasm-dsp/                         # Rust — módulo de DSP compilado para WebAssembly
-│   ├── src/
-│   │   └── lib.rs
-│   ├── Cargo.toml
-│   └── build.sh                      # wasm-pack build → gera artefato consumido por apps/web/wasm
+├── wasm-dsp/                         # AssemblyScript — módulo de DSP compilado para WebAssembly
+│   ├── assembly/
+│   │   └── index.ts
+│   ├── build/                        # .wasm + bindings gerados (copiados pra apps/web/public/wasm)
+│   ├── smoke-test.mjs                # testes de sanidade com áudio sintético (roda via `node`)
+│   └── package.json                  # script `build` chama `asc`; ver docs/DECISIONS.md pelo motivo de não ser Rust
 │
 ├── infra/                            # Infraestrutura como código (opcional, cresce conforme necessário)
 │   ├── terraform/                    # provisionamento de storage, banco, cluster
@@ -145,10 +146,10 @@ dev-analysis:
 	cd services/analysis-service && uvicorn analysis_service.api:app --reload
 
 dev-wasm:
-	cd wasm-dsp && ./build.sh
+	cd wasm-dsp && npm run build && cp build/chord-dsp.* ../apps/web/public/wasm/
 ```
 
-Cada serviço continua **independentemente executável** com os comandos nativos do seu ecossistema (`npm run dev`, `uvicorn ...`, `cargo build`) — isso é o que garante que o projeto "funcione independentemente da tecnologia usada", como você pediu: cada linguagem usa suas próprias ferramentas padrão, e a estrutura de pastas só organiza onde cada coisa mora, sem impor um jeito artificial de rodar.
+Cada serviço continua **independentemente executável** com os comandos nativos do seu ecossistema (`npm run dev`, `uvicorn ...`, `npm run build` no `wasm-dsp`) — isso é o que garante que o projeto "funcione independentemente da tecnologia usada", como você pediu: cada linguagem usa suas próprias ferramentas padrão, e a estrutura de pastas só organiza onde cada coisa mora, sem impor um jeito artificial de rodar.
 
 **Com Docker**, o mesmo `Makefile` viraria:
 ```makefile

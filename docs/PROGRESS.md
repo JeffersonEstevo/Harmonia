@@ -66,12 +66,12 @@ Cada fase é pensada para ser pedida a uma LLM em pedaços pequenos (uma tarefa 
 - [x] Atalhos de teclado (space, J/K/L, +/-, além de I/O pra loop)
 
 ### Fase 3 — Análise Tier 1 (client-side, WASM)
-- [ ] Módulo WASM: FFT/CQT/chroma (Rust ou C++ via Emscripten)
-- [ ] Integração do WASM num Web Worker (não travar a main thread)
-- [ ] Detector simples de onset/BPM client-side
-- [ ] Classificador Tier 1 de acordes (maior/menor/7ª dominante) — regras ou modelo leve
-- [ ] Overlay de acordes na waveform (blocos coloridos, onset/offset)
-- [ ] Overlay de beat grid
+- [x] Módulo WASM: FFT/chroma (AssemblyScript, não Rust/C++ — ver DECISIONS.md)
+- [x] Integração do WASM num Web Worker (não trava a main thread)
+- [x] Detector simples de onset/BPM client-side
+- [x] Classificador Tier 1 de acordes (maior/menor/7ª dominante) — template matching por chroma
+- [x] Overlay de acordes na waveform (blocos coloridos, onset/offset)
+- [x] Overlay de beat grid
 
 ### Fase 4 — Backend de Análise (Tier 2, Python)
 - [ ] Upload para storage (S3-compatible), URLs assinadas
@@ -132,11 +132,11 @@ Preencha os colchetes antes de colar. Quanto mais específica a "PRÓXIMA TAREFA
 
 > **Atualize esta seção a cada sessão.** É a parte que realmente muda com o tempo.
 
-- **Fase atual:** Fase 2 concluída — pronta para Fase 3
-- **Última tarefa concluída:** Minimapa (overview + reposicionamento), loop regions (Shift+arraste cria, arraste na borda redimensiona, duplo-clique/botão limpa, loop nativo sample-accurate via `AudioBufferSourceNode`), velocidade de reprodução 0.25x–2x com pitch preservado (OLA via `AudioWorkletNode`), zoom por pinça (touch) e atalhos de teclado completos (Space/K, J/L, I/O, +/-). 18 testes automatizados passando, lint e build limpos.
-- **Próxima tarefa:** Fase 3 — detecção de acordes Nível 1 client-side via WASM (maior/menor/7ª), BPM/tonalidade básicos, overlays na waveform
-- **Bloqueios/pendências:** nenhum. Nota: a lógica de DSP dentro do `AudioWorklet` (time-stretch) não tem cobertura de teste automatizado — `jsdom` não implementa Web Audio API, então precisa de QA manual (ou testes de navegador tipo Playwright, ainda não configurados)
-- **Última atualização:** 2026-09-20
+- **Fase atual:** Fase 3 concluída — pronta para Fase 4
+- **Última tarefa concluída:** Módulo `wasm-dsp` (AssemblyScript → `.wasm` real): FFT, chromagram (mapeamento de bins pra classes de altura), detecção de onset (spectral flux) e estimativa de tempo (autocorrelação), classificador de acordes por template matching (36 templates: 12 fundamentais × maior/menor/7ª dominante). Roda num Web Worker dedicado (`public/workers/analysis-worker.js`), disparado automaticamente após o carregamento da faixa. Suavização por filtro de moda + codificação em segmentos (substitui o HMM da Camada 2, que é server-side). Overlay de acordes (faixa colorida sob a waveform) e grade de batida (marcações finas) integrados ao `WaveformCanvas`. 5/5 testes de sanidade da DSP com áudio sintético passando (seno puro → chroma correto, acordes C e Am reconhecidos, silêncio → nenhum acorde, cliques a 120 BPM → tempo estimado correto), 17 testes automatizados do app + 1 do gateway passando, lint e build limpos.
+- **Próxima tarefa:** Fase 4 — microsserviços Python (`analysis-service`, `chord-recognition-service`, `key-tempo-service`): extração de features via librosa/essentia, modelo de ML pra vocabulário estendido de acordes/inversões, fila de jobs, WebSocket de progresso
+- **Bloqueios/pendências:** nenhum novo. Segue valendo a nota da Fase 2 sobre `AudioWorklet` sem cobertura automatizada. Nota nova: os testes de sanidade da DSP (`wasm-dsp/smoke-test.mjs`) rodam via `node`, fora do `npm test` do monorepo (Vitest/jsdom não executam WASM+ESM do mesmo jeito) — rodar manualmente com `cd wasm-dsp && npm run smoke-test` após qualquer mudança na DSP
+- **Última atualização:** 2026-09-22
 
 ---
 

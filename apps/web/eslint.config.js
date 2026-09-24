@@ -3,7 +3,7 @@ import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 
 export default [
-  { ignores: ["public/worklets/**"] },
+  { ignores: ["public/worklets/**", "public/wasm/**", "public/workers/**"] },
   ...baseConfig,
   {
     files: ["**/*.{ts,tsx}"],
