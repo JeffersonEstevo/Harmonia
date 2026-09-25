@@ -13,8 +13,9 @@
 
 const TWO_PI: f64 = 6.283185307179586;
 const MIN_FREQ_HZ: f64 = 80.0;
-const MAX_FREQ_HZ: f64 = 5000.0;
-const SILENCE_ENERGY_THRESHOLD: f64 = 0.02;
+const MAX_FREQ_HZ: f64 = 2000.0; // acima disso é quase só harmônico/percussão em mixagens reais
+const RELATIVE_SILENCE_FRACTION: f64 = 0.15; // frame precisa ter pelo menos 15% da energia do pico da faixa
+const DOM7_PENALTY: f64 = 0.92; // pequeno viés contra 7ª — harmônicos reais tendem a inflar esse grau
 const CHORD_MATCH_THRESHOLD: f64 = 0.55;
 
 // ---------------------------------------------------------------------------
@@ -77,8 +78,12 @@ function freqToPitchClass(freqHz: f64): i32 {
 }
 
 // ---------------------------------------------------------------------------
-// Análise por frame: chroma (12) + força de onset (1) = 13 floats/frame,
-// empacotados num único Float32Array pra simplificar a fronteira JS<->WASM.
+// Análise por frame: chroma bruto/não-normalizado (12) + força de onset (1)
+// + energia bruta do frame (1) = 14 floats/frame, empacotados num único
+// Float32Array pra simplificar a fronteira JS<->WASM. O chroma é mantido
+// SEM normalização de propósito — cosineSimilarity() já é invariante a
+// escala, e manter a energia bruta é o que permite um gate de silêncio
+// de verdade em classifyChords() (ver docs/DECISIONS.md).
 // ---------------------------------------------------------------------------
 
 export function analyzeFrames(
@@ -90,7 +95,7 @@ export function analyzeFrames(
   const n = samples.length;
   const numFrames = n > frameSize ? 1 + (n - frameSize) / hopSize : 1;
   const window = hannWindow(frameSize);
-  const out = new Float32Array(numFrames * 13);
+  const out = new Float32Array(numFrames * 14);
 
   const real = new Float64Array(frameSize);
   const imag = new Float64Array(frameSize);
@@ -124,22 +129,25 @@ export function analyzeFrames(
       const freqHz = f64(k) * binHz;
       if (freqHz >= MIN_FREQ_HZ && freqHz <= MAX_FREQ_HZ) {
         const pc = freqToPitchClass(freqHz);
-        chroma[pc] += mag;
+        // compressão log — sem isso, um único transiente de percussão bem
+        // forte (chute de bumbo, prato) domina o chroma do frame inteiro
+        // e derruba a proporção real entre as notas do acorde
+        chroma[pc] += Math.log(1.0 + mag);
       }
     }
 
-    // normaliza o vetor de chroma do frame (deixa a classificação de acorde
-    // invariante a volume) — por soma, não por máximo, fica menos sensível
-    // a um único bin espúrio dominando.
-    let chromaSum: f64 = 0.0;
-    for (let c = 0; c < 12; c++) chromaSum += chroma[c];
-    if (chromaSum > 0.0) {
-      for (let c = 0; c < 12; c++) chroma[c] = chroma[c] / chromaSum;
-    }
+    // energia BRUTA (pré-normalização) do frame — usada como gate de
+    // silêncio/incerteza em classifyChords. Guardar isso é o que faltava
+    // antes: normalizar aqui e só carregar o vetor já normalizado fazia
+    // a "energia" somar sempre ~1.0, então o gate nunca disparava de
+    // verdade (ver docs/DECISIONS.md).
+    let rawEnergy: f64 = 0.0;
+    for (let c = 0; c < 12; c++) rawEnergy += chroma[c];
 
-    const outBase = frame * 13;
+    const outBase = frame * 14;
     for (let c = 0; c < 12; c++) out[outBase + c] = f32(chroma[c]);
     out[outBase + 12] = f32(flux);
+    out[outBase + 13] = f32(rawEnergy);
 
     for (let k = 0; k < frameSize / 2; k++) prevMagnitude[k] = magnitude[k];
   }
@@ -172,7 +180,16 @@ function buildTemplate(root: i32, offsets: i32[]): Float64Array {
   const t = new Float64Array(12);
   for (let i = 0; i < offsets.length; i++) {
     const pc = (root + offsets[i]) % 12;
-    t[pc] = 1.0;
+    // fundamental e quinta são acusticamente mais robustas (reforçadas pelo
+    // baixo, mais estáveis); a terça (e a sétima) definem a qualidade mas
+    // são espectralmente mais "frágeis" — sem esse peso, acordes que
+    // compartilham 2 de 3 notas com um vizinho (ex.: Sol maior e Si menor
+    // compartilham Si e Ré) ficam ambíguos demais em áudio real.
+    const offset = offsets[i];
+    let weight: f64 = 1.0;
+    if (offset == 0) weight = 1.3; // fundamental
+    else if (offset == 7) weight = 1.15; // quinta justa
+    t[pc] = weight;
   }
   return t;
 }
@@ -196,23 +213,36 @@ export function classifyChords(framesData: Float32Array, numFrames: i32): Int32A
   const result = new Int32Array(numFrames);
   const chroma = new Float64Array(12);
 
+  // primeira passada: acha a energia de pico da faixa, pra usar um gate de
+  // silêncio RELATIVO (não um valor absoluto fixo, que varia demais entre
+  // masterizações diferentes) — ver docs/DECISIONS.md.
+  let maxEnergy: f64 = 0.0;
   for (let frame = 0; frame < numFrames; frame++) {
-    const base = frame * 13;
-    let energy: f64 = 0.0;
-    for (let c = 0; c < 12; c++) {
-      chroma[c] = f64(framesData[base + c]);
-      energy += chroma[c];
-    }
+    const e = f64(framesData[frame * 14 + 13]);
+    if (e > maxEnergy) maxEnergy = e;
+  }
+  const silenceFloor = maxEnergy * RELATIVE_SILENCE_FRACTION;
 
-    if (energy < SILENCE_ENERGY_THRESHOLD) {
+  for (let frame = 0; frame < numFrames; frame++) {
+    const base = frame * 14;
+    const energy = f64(framesData[base + 13]);
+
+    if (energy < silenceFloor) {
       result[frame] = -1;
       continue;
     }
 
+    for (let c = 0; c < 12; c++) chroma[c] = f64(framesData[base + c]);
+
     let bestId = -1;
     let bestScore: f64 = 0.0;
     for (let t = 0; t < 36; t++) {
-      const score = cosineSimilarity(chroma, TEMPLATES[t]);
+      let score = cosineSimilarity(chroma, TEMPLATES[t]);
+      // qualidade 2 = sétima dominante — harmônicos reais de instrumentos
+      // acústicos/elétricos inflam naturalmente essa região do espectro,
+      // então sem esse leve desconto o classificador vê "7ª" com frequência
+      // muito maior do que realmente aparece em progressões comuns.
+      if (t % 3 === 2) score *= DOM7_PENALTY;
       if (score > bestScore) {
         bestScore = score;
         bestId = t;
@@ -242,7 +272,7 @@ export function estimateTempo(
   const onset = new Float64Array(numFrames);
   let mean: f64 = 0.0;
   for (let i = 0; i < numFrames; i++) {
-    onset[i] = f64(framesData[i * 13 + 12]);
+    onset[i] = f64(framesData[i * 14 + 12]);
     mean += onset[i];
   }
   mean /= f64(numFrames);

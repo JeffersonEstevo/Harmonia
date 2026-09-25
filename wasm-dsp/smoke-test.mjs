@@ -34,6 +34,37 @@ function noteFreq(midi) {
   return 440 * Math.pow(2, (midi - 69) / 12);
 }
 
+/** Simula um instrumento real: fundamental + harmônicos decrescentes — não
+ * uma senoide pura. É exatamente esse conteúdo harmônico que inflava
+ * falsamente a detecção de 7ª antes das correções. */
+function realisticToneChord(rootMidis, seconds) {
+  const n = Math.floor(SAMPLE_RATE * seconds);
+  const data = new Float32Array(n);
+  const harmonicAmps = [1.0, 0.5, 0.3, 0.15, 0.08]; // decaimento típico de instrumento acústico
+  for (const rootMidi of rootMidis) {
+    const f0 = noteFreq(rootMidi);
+    for (let h = 0; h < harmonicAmps.length; h++) {
+      const freq = f0 * (h + 1);
+      const amp = (0.25 / rootMidis.length) * harmonicAmps[h];
+      for (let i = 0; i < n; i++) {
+        data[i] += amp * Math.sin((2 * Math.PI * freq * i) / SAMPLE_RATE);
+      }
+    }
+  }
+  return data;
+}
+
+/** Adiciona "batidas" de percussão (ruído filtrado em rajadas curtas) por cima do sinal. */
+function addPercussion(samples, bpm) {
+  const beatInterval = Math.floor((60 / bpm) * SAMPLE_RATE);
+  for (let start = 0; start < samples.length; start += beatInterval) {
+    for (let i = 0; i < 800 && start + i < samples.length; i++) {
+      samples[start + i] += 0.4 * (Math.random() * 2 - 1) * Math.exp(-i / 150);
+    }
+  }
+  return samples;
+}
+
 let failures = 0;
 function check(label, condition) {
   console.log(`${condition ? "OK  " : "FAIL"} — ${label}`);
@@ -44,9 +75,9 @@ function check(label, condition) {
 {
   const samples = sineWave(440, 2);
   const frames = dsp.analyzeFrames(samples, SAMPLE_RATE, FRAME_SIZE, HOP_SIZE);
-  const numFrames = frames.length / 13;
+  const numFrames = frames.length / 14;
   const midFrame = Math.floor(numFrames / 2);
-  const chroma = Array.from(frames.slice(midFrame * 13, midFrame * 13 + 12));
+  const chroma = Array.from(frames.slice(midFrame * 14, midFrame * 14 + 12));
   const peakPc = chroma.indexOf(Math.max(...chroma));
   check(`440Hz (A4) -> pico de chroma em A (pc=9), obtido pc=${peakPc} (${NOTE_NAMES[peakPc]})`, peakPc === 9);
 }
@@ -55,7 +86,7 @@ function check(label, condition) {
 {
   const cMaj = chordWave([noteFreq(60), noteFreq(64), noteFreq(67)], 2); // C4 E4 G4
   const frames = dsp.analyzeFrames(cMaj, SAMPLE_RATE, FRAME_SIZE, HOP_SIZE);
-  const numFrames = frames.length / 13;
+  const numFrames = frames.length / 14;
   const chordIds = dsp.classifyChords(frames, numFrames);
   const midId = chordIds[Math.floor(numFrames / 2)];
   const label = midId >= 0 ? `${NOTE_NAMES[Math.floor(midId / 3)]}${QUALITY_NAMES[midId % 3]}` : "N";
@@ -66,7 +97,7 @@ function check(label, condition) {
 {
   const aMin = chordWave([noteFreq(57), noteFreq(60), noteFreq(64)], 2); // A3 C4 E4
   const frames = dsp.analyzeFrames(aMin, SAMPLE_RATE, FRAME_SIZE, HOP_SIZE);
-  const numFrames = frames.length / 13;
+  const numFrames = frames.length / 14;
   const chordIds = dsp.classifyChords(frames, numFrames);
   const midId = chordIds[Math.floor(numFrames / 2)];
   const label = midId >= 0 ? `${NOTE_NAMES[Math.floor(midId / 3)]}${QUALITY_NAMES[midId % 3]}` : "N";
@@ -77,7 +108,7 @@ function check(label, condition) {
 {
   const silence = new Float32Array(SAMPLE_RATE * 1);
   const frames = dsp.analyzeFrames(silence, SAMPLE_RATE, FRAME_SIZE, HOP_SIZE);
-  const numFrames = frames.length / 13;
+  const numFrames = frames.length / 14;
   const chordIds = dsp.classifyChords(frames, numFrames);
   const allSilence = Array.from(chordIds).every((id) => id === -1);
   check("Silêncio -> nenhum acorde detectado (-1) em todos os frames", allSilence);
@@ -97,10 +128,42 @@ function check(label, condition) {
     }
   }
   const frames = dsp.analyzeFrames(samples, SAMPLE_RATE, FRAME_SIZE, HOP_SIZE);
-  const numFrames = frames.length / 13;
+  const numFrames = frames.length / 14;
   const estimatedBpm = dsp.estimateTempo(frames, numFrames, HOP_SIZE, SAMPLE_RATE, 60, 200);
   const withinTolerance = Math.abs(estimatedBpm - bpm) < 5 || Math.abs(estimatedBpm - bpm * 2) < 5 || Math.abs(estimatedBpm - bpm / 2) < 5;
   check(`Cliques a 120 BPM -> tempo estimado ~120 (ou múltiplo/submúltiplo octave-equivalente), obtido ${estimatedBpm.toFixed(1)}`, withinTolerance);
+}
+
+// --- Teste 6: acorde de Sol maior com harmônicos reais + percussão -> não pode
+// virar falsamente "G7" (era exatamente esse o bug relatado em áudio real)
+{
+  let samples = realisticToneChord([55, 59, 62], 3); // G3 B3 D4 = Sol maior
+  samples = addPercussion(samples, 156); // BPM rápido, igual ao caso relatado
+  const frames = dsp.analyzeFrames(samples, SAMPLE_RATE, FRAME_SIZE, HOP_SIZE);
+  const numFrames = frames.length / 14;
+  const chordIds = dsp.classifyChords(frames, numFrames);
+
+  // conta a moda entre os frames do meio da faixa (ignora a borda, onde a
+  // janela ainda não estabilizou)
+  const midSlice = Array.from(chordIds).slice(
+    Math.floor(numFrames * 0.3),
+    Math.floor(numFrames * 0.7),
+  );
+  const counts = new Map();
+  for (const id of midSlice) counts.set(id, (counts.get(id) ?? 0) + 1);
+  let modeId = -1;
+  let modeCount = -1;
+  for (const [id, count] of counts) {
+    if (count > modeCount) {
+      modeCount = count;
+      modeId = id;
+    }
+  }
+  const label = modeId >= 0 ? `${NOTE_NAMES[Math.floor(modeId / 3)]}${QUALITY_NAMES[modeId % 3]}` : "N";
+  check(
+    `Sol maior (harmônicos reais + percussão a 156 BPM) -> não deve virar "G7", obtido "${label}" (id=${modeId})`,
+    modeId !== 23, // id 23 = G (root=7) * 3 + qualidade 2 (dom7)
+  );
 }
 
 console.log(`\n${failures === 0 ? "Todos os testes passaram." : `${failures} teste(s) falharam.`}`);

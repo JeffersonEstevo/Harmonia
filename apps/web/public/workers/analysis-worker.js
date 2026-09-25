@@ -108,7 +108,7 @@ self.onmessage = async (event) => {
     const numFrames = frames.length / 13;
 
     const rawChordIds = Array.from(dsp.classifyChords(frames, numFrames));
-    const smoothedIds = smoothChordIds(rawChordIds, 5);
+    const smoothedIds = smoothChordIds(rawChordIds, 9);
     const chordSegments = encodeSegments(smoothedIds, HOP_SIZE, sampleRate, MIN_SEGMENT_SECONDS);
 
     const bpm = dsp.estimateTempo(frames, numFrames, HOP_SIZE, sampleRate, MIN_BPM, MAX_BPM);
