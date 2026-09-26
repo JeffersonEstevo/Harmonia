@@ -3,6 +3,7 @@ import { AudioEngine, type PlaybackState, type LoopRegion } from "../lib/audio/A
 import { buildPeakPyramid, type PeakPyramid } from "../lib/waveform/peaks";
 import { validateAudioFile, validateDuration } from "../lib/validation/audioFile";
 import { analyzeTrack, type ChordSegment } from "../lib/analysis/analysisClient";
+import { analyzeTier2 } from "../lib/analysis/tier2Client";
 
 /**
  * Estado GROSSO da faixa carregada — muda algumas vezes por sessão, não
@@ -28,6 +29,11 @@ interface PlayerState {
   chordSegments: ChordSegment[];
   bpm: number | null;
   beatGrid: number[];
+
+  tier2Status: AnalysisStatus;
+  tier2Error: string | null;
+  musicalKey: string | null;
+  keyScale: string | null;
 
   engine: AudioEngine;
 
@@ -60,6 +66,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     chordSegments: [],
     bpm: null,
     beatGrid: [],
+    tier2Status: "idle",
+    tier2Error: null,
+    musicalKey: null,
+    keyScale: null,
     engine,
 
     async loadFile(file: File) {
@@ -72,6 +82,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         chordSegments: [],
         bpm: null,
         beatGrid: [],
+        tier2Status: "idle",
+        tier2Error: null,
+        musicalKey: null,
+        keyScale: null,
       });
 
       const validation = await validateAudioFile(file);
@@ -109,6 +123,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         set({ analysisStatus: "analyzing" });
         analyzeTrack(channelData, audioBuffer.sampleRate, audioBuffer.duration)
           .then((result) => {
+            // guarda contra resposta atrasada de uma faixa que já foi trocada
+            if (get().fileName !== file.name) return;
             set({
               analysisStatus: "done",
               chordSegments: result.chordSegments,
@@ -117,8 +133,29 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
             });
           })
           .catch((err) => {
-            console.warn("[analysis] falhou:", err);
+            console.warn("[analysis] Nível 1 falhou:", err);
             set({ analysisStatus: "error", analysisError: err instanceof Error ? err.message : String(err) });
+          });
+
+        // Camada 2 (servidor) roda em paralelo — bem mais precisa (ver
+        // docs/SPEC.md §4.4), substitui o resultado do Nível 1 quando
+        // terminar. Falha aqui não é crítica: o Nível 1 já entregou algo.
+        set({ tier2Status: "analyzing" });
+        analyzeTier2(file)
+          .then((result) => {
+            if (get().fileName !== file.name) return;
+            set({
+              tier2Status: "done",
+              chordSegments: result.chordSegments,
+              bpm: result.bpm ?? get().bpm,
+              beatGrid: result.beatGrid.length > 0 ? result.beatGrid : get().beatGrid,
+              musicalKey: result.key,
+              keyScale: result.keyScale,
+            });
+          })
+          .catch((err) => {
+            console.warn("[analysis] Camada 2 indisponível:", err);
+            set({ tier2Status: "error", tier2Error: err instanceof Error ? err.message : String(err) });
           });
       } catch {
         set({

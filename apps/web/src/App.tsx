@@ -27,8 +27,11 @@ function GatewayStatusBadge() {
 function AnalysisStatusLine() {
   const analysisStatus = usePlayerStore((s) => s.analysisStatus);
   const analysisError = usePlayerStore((s) => s.analysisError);
+  const tier2Status = usePlayerStore((s) => s.tier2Status);
   const bpm = usePlayerStore((s) => s.bpm);
   const chordSegments = usePlayerStore((s) => s.chordSegments);
+  const musicalKey = usePlayerStore((s) => s.musicalKey);
+  const keyScale = usePlayerStore((s) => s.keyScale);
 
   if (analysisStatus === "analyzing") {
     return <span className="analysis-status analysis-status--busy">Analisando acordes e tempo…</span>;
@@ -41,11 +44,19 @@ function AnalysisStatusLine() {
     );
   }
   if (analysisStatus === "done") {
-    const bpmLabel = bpm ? `${bpm} BPM` : "BPM não detectado";
+    const bpmLabel = bpm ? `${Math.round(bpm)} BPM` : "BPM não detectado";
+    const keyLabel = musicalKey ? ` · ${musicalKey}${keyScale === "minor" ? "m" : ""}` : "";
+    const chordCount = `${chordSegments.length} acorde${chordSegments.length === 1 ? "" : "s"}`;
+
     return (
       <span className="analysis-status">
-        {bpmLabel} · {chordSegments.length} acorde{chordSegments.length === 1 ? "" : "s"} detectado
-        {chordSegments.length === 1 ? "" : "s"}
+        {bpmLabel}
+        {keyLabel} · {chordCount}
+        {tier2Status === "analyzing" && (
+          <span className="analysis-status--busy"> · refinando com o servidor…</span>
+        )}
+        {tier2Status === "error" && <span> · refinamento do servidor indisponível</span>}
+        {tier2Status === "done" && <span className="analysis-status--refined"> · refinado</span>}
       </span>
     );
   }

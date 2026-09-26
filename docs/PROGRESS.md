@@ -74,13 +74,13 @@ Cada fase é pensada para ser pedida a uma LLM em pedaços pequenos (uma tarefa 
 - [x] Overlay de beat grid
 
 ### Fase 4 — Backend de Análise (Tier 2, Python)
-- [ ] Upload para storage (S3-compatible), URLs assinadas
-- [ ] Fila de jobs (Redis Streams é o mais simples pra começar)
-- [ ] Microsserviço de feature extraction (librosa/essentia: CQT, HPSS)
-- [ ] Microsserviço de reconhecimento de acordes (modelo CNN/CRNN + decodificação HMM)
-- [ ] Microsserviço de key/tempo (Krumhansl-Schmuckler ou modelo treinado + DBN beat tracker)
-- [ ] WebSocket para stream de progresso/resultados ao client
-- [ ] Refinamento in-place do overlay (Tier 1 → Tier 2 sem "pulo" visual)
+- [ ] ~~Upload para storage (S3-compatible), URLs assinadas~~ — adiado pra Fase 5 (ver DECISIONS.md); áudio processado em memória, não persistido
+- [ ] ~~Fila de jobs (Redis Streams)~~ — adiado pra Fase 5, junto do Postgres; por ora, `ThreadPoolExecutor` in-process (ver DECISIONS.md)
+- [x] Feature extraction + reconhecimento de acordes + key/tempo — **um único serviço** (`analysis-service`), não três (ver DECISIONS.md pelo motivo)
+- [x] Reconhecimento de acordes de alta precisão — essentia (HPCP + `ChordsDetection`), não um CNN/CRNN treinado do zero (ver DECISIONS.md). Validado com MP3 real reproduzindo a progressão Bm-G-D-A relatada pelo usuário: **os 4 acordes corretos**
+- [x] Key/tempo — essentia (`KeyExtractor` + `RhythmExtractor2013`)
+- [x] WebSocket para stream de progresso/resultado ao client (`analysis-service` expõe `/ws/jobs/{id}` diretamente; sem passar pelo `api-gateway` ainda, ver DECISIONS.md)
+- [x] Refinamento in-place do overlay (Tier 1 → Camada 2 substitui o resultado quando chega; sem animação de cross-fade ainda — troca instantânea, ver DECISIONS.md se quiser essa polish depois)
 
 ### Fase 5 — Contas & Persistência
 - [ ] Auth (OAuth2/OIDC — Google/Apple + email/senha)
@@ -132,11 +132,11 @@ Preencha os colchetes antes de colar. Quanto mais específica a "PRÓXIMA TAREFA
 
 > **Atualize esta seção a cada sessão.** É a parte que realmente muda com o tempo.
 
-- **Fase atual:** Fase 3 concluída (com ressalva de precisão conhecida, documentada abaixo) — pronta para Fase 4
-- **Última tarefa concluída:** Correções de precisão no classificador de acordes, motivadas por teste real do usuário numa música (156 BPM, muitos falsos acordes "7ª" detectados): corrigido bug de normalização que quebrava o gate de silêncio (energia sempre somava ~1.0), faixa de frequência restrita a 2000Hz, compressão log na magnitude, peso maior pra fundamental/quinta nos templates, desconto de 8% pra 7ª dominante, suavização temporal de 5→9 frames. 6/6 testes de sanidade passando, incluindo um novo teste com harmônicos realistas + percussão. **Limitação conhecida e não resolvida:** o classificador ainda confunde acordes que compartilham 2 de 3 notas em áudio harmonicamente denso (ex.: G vs. Bm) — é uma limitação inerente de template matching simples, não um bug; resolver de verdade requer a Camada 2 (Fase 4). Também corrigido: bug de deploy no Nginx que travava a análise silenciosamente (import estático do WASM + falta de MIME correto — na real o MIME já funcionava por padrão, o problema real era o import estático sem tratamento de erro).
-- **Próxima tarefa:** Fase 4 — microsserviços Python (`analysis-service`, `chord-recognition-service`, `key-tempo-service`): extração de features via librosa/essentia, modelo de ML pra vocabulário estendido de acordes/inversões, fila de jobs, WebSocket de progresso. Esta fase é a resposta real ao problema de precisão acima — vale considerar priorizá-la mais cedo dado o feedback do usuário sobre precisão.
-- **Bloqueios/pendências:** nenhum novo. Segue valendo a nota da Fase 2 sobre `AudioWorklet` sem cobertura automatizada. Nota nova: os testes de sanidade da DSP (`wasm-dsp/smoke-test.mjs`) rodam via `node`, fora do `npm test` do monorepo (Vitest/jsdom não executam WASM+ESM do mesmo jeito) — rodar manualmente com `cd wasm-dsp && npm run smoke-test` após qualquer mudança na DSP
-- **Última atualização:** 2026-09-24
+- **Fase atual:** Fase 4 concluída (com escopo reduzido documentado — ver DECISIONS.md) — pronta para Fase 5
+- **Última tarefa concluída:** `services/analysis-service` (Python/FastAPI/essentia) — reconhecimento de acordes, tonalidade e tempo com precisão bem maior que o Nível 1. Validado com um MP3 real (gerado via ffmpeg) reproduzindo a progressão Bm-G-D-A reportada pelo usuário: **os 4 acordes corretos** + tonalidade Ré maior (94% confiança). Testado ponta a ponta via HTTP (`POST /analyze` + `GET /jobs/{id}`) e via WebSocket (`/ws/jobs/{id}`), não só chamada direta da função Python. 4/4 testes automatizados passando (`pytest`). Frontend (`apps/web`) dispara a Camada 2 em paralelo com o Nível 1 e substitui o overlay/BPM/tonalidade quando o resultado (mais preciso) chega — indicador "refinando com o servidor…" na tela.
+- **Próxima tarefa:** Fase 5 — Auth, Postgres, biblioteca salva. Também é o momento natural de revisitar as simplificações desta fase (fila de jobs real via Redis Streams, S3 pra áudio, roteamento via api-gateway) — ver a lista de decisões marcadas "adiado pra Fase 5" no DECISIONS.md
+- **Bloqueios/pendências:** nenhum novo. Seguem valendo as notas das Fases 2-3 (AudioWorklet e wasm-dsp sem cobertura automatizada no CI do monorepo). Nota nova: os testes do `analysis-service` (`pytest`) também rodam fora do `npm test` do monorepo raiz (é Python, não Node) — rodar manualmente com `cd services/analysis-service && pytest tests/ -v`. Limitação de precisão do Nível 1 documentada na Fase 3 segue existindo (é esperado — o Nível 1 continua sendo só o "rascunho rápido"; a Camada 2 é quem resolve de verdade agora)
+- **Última atualização:** 2026-09-26
 
 ---
 

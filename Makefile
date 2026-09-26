@@ -12,15 +12,19 @@ docker-down:
 
 # --- variante sem Docker (roda cada serviço nativamente) ---
 dev-native:
-	@echo "Rode em dois terminais separados:"
+	@echo "Rode em três terminais separados:"
 	@echo "  make dev-web"
 	@echo "  make dev-gateway"
+	@echo "  make dev-analysis"
 
 dev-web:
 	npm run dev:web
 
 dev-gateway:
 	npm run dev:gateway
+
+dev-analysis:
+	cd services/analysis-service && . .venv/bin/activate && uvicorn analysis_service.api.main:app --reload --port 8001
 
 lint:
 	npm run lint

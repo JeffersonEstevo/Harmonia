@@ -20,3 +20,10 @@ services:
       - PORT=4000
       - NODE_ENV=development
       - CORS_ORIGIN=http://localhost:5173
+
+  analysis-service:
+    build:
+      context: .
+      dockerfile: services/analysis-service/Dockerfile
+    ports:
+      - "8001:8001"

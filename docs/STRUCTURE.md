@@ -56,33 +56,23 @@ harmonia/
 │   │   ├── .env.example
 │   │   └── Dockerfile
 │   │
-│   ├── analysis-service/             # Python — feature extraction + orquestração dos modelos
-│   │   ├── src/
-│   │   │   └── analysis_service/     # layout "src" padrão de pacote Python
-│   │   │       ├── __init__.py
-│   │   │       ├── api/              # FastAPI routers
-│   │   │       ├── features/         # CQT, chroma, HPSS (librosa/essentia)
-│   │   │       ├── workers/          # consumers da fila de jobs
-│   │   │       └── config.py
-│   │   ├── tests/
-│   │   ├── pyproject.toml            # (ou requirements.txt, se preferir algo mais simples)
-│   │   ├── .env.example
-│   │   └── Dockerfile
-│   │
-│   ├── chord-recognition-service/    # Python — modelo de ML dedicado (versionável independente: v1, v2...)
-│   │   ├── src/
-│   │   │   └── chord_service/
-│   │   │       ├── model/            # definição do modelo (CNN/CRNN)
-│   │   │       ├── inference/
-│   │   │       ├── decoding/         # HMM/CRF de suavização temporal
-│   │   │       └── api.py
-│   │   ├── models/                   # pesos treinados versionados (ou apontando pra um registry externo)
-│   │   ├── tests/
-│   │   ├── pyproject.toml
-│   │   └── Dockerfile
-│   │
-│   └── key-tempo-service/            # Python — key signature + BPM (pode nascer dentro de analysis-service
-│                                      # e virar serviço próprio depois — ver DECISIONS.md se/quando isso mudar)
+│   └── analysis-service/             # Python — Camada 2 (Tier 2): feature extraction + acordes +
+│                                      # key/tempo, TUDO NESTE SERVIÇO (não três, como planejado
+│                                      # originalmente — ver docs/DECISIONS.md pelo motivo: sem fila
+│                                      # de mensagens/DB reais ainda, separar em três processos não
+│                                      # trazia benefício). Usa essentia (HPCP + ChordsDetection +
+│                                      # KeyExtractor + RhythmExtractor2013), não um CNN/CRNN treinado
+│                                      # do zero — idem, ver DECISIONS.md.
+│       ├── src/
+│       │   └── analysis_service/     # layout "src" padrão de pacote Python
+│       │       ├── __init__.py
+│       │       ├── api/              # FastAPI (main.py: upload, jobs, WebSocket)
+│       │       ├── pipeline.py       # HPCP, ChordsDetection, KeyExtractor, RhythmExtractor2013
+│       │       └── audio_io.py       # decodificação (soundfile) — MP3/WAV/FLAC/OGG
+│       ├── tests/
+│       ├── pyproject.toml
+│       ├── .env.example
+│       └── Dockerfile                # fixa Python 3.12 — essentia só publica wheel pra essa tag (cp312)
 │
 ├── packages/                         # código compartilhado, sem processo próprio
 │   ├── api-contracts/                # OpenAPI/schema + tipos gerados (TS) — fonte única de verdade do contrato de API
@@ -143,7 +133,7 @@ dev-gateway:
 	cd services/api-gateway && npm run dev
 
 dev-analysis:
-	cd services/analysis-service && uvicorn analysis_service.api:app --reload
+	cd services/analysis-service && uvicorn analysis_service.api.main:app --reload
 
 dev-wasm:
 	cd wasm-dsp && npm run build && cp build/chord-dsp.* ../apps/web/public/wasm/

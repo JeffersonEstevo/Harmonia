@@ -1,0 +1,16 @@
+[project]
+name = "analysis-service"
+version = "0.1.0"
+description = "Camada 2 (Tier 2) — extração de features + reconhecimento de acordes + tonalidade/tempo, via essentia. Ver docs/SPEC.md §6.3/§6.4 e docs/DECISIONS.md pelas simplificações de escopo desta fase."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "essentia>=2.1b6.dev1389",
+    "numpy>=2.0",
+    "python-multipart>=0.0.9",
+    "soundfile>=0.12",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
