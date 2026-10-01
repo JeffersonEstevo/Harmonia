@@ -46,6 +46,30 @@
   gap: 0.5rem;
 }
 
+.track-view__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.track-view__new-button {
+  flex-shrink: 0;
+  padding: 0.25rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.track-view__new-button:hover {
+  border-color: var(--text-muted);
+  color: var(--text);
+}
+
 .track-view__filename {
   margin: 0 0 0.25rem;
   font-size: 0.9rem;

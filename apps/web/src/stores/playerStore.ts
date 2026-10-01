@@ -35,9 +35,12 @@ interface PlayerState {
   musicalKey: string | null;
   keyScale: string | null;
 
+  followPlayhead: boolean;
+
   engine: AudioEngine;
 
   loadFile: (file: File) => Promise<void>;
+  reset: () => void;
   play: () => void;
   pause: () => void;
   stop: () => void;
@@ -45,11 +48,19 @@ interface PlayerState {
   setPlaybackRate: (rate: number) => void;
   setLoopRegion: (region: LoopRegion | null) => void;
   toggleLoopEnabled: () => void;
+  toggleFollowPlayhead: () => void;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => {
   const engine = new AudioEngine();
   engine.subscribe((playbackState) => set({ playbackState }));
+
+  // contador de "geração" de carregamento — mais robusto que comparar por
+  // fileName (que falha se a mesma faixa for carregada duas vezes seguidas).
+  // Cada loadFile() captura seu próprio id; qualquer resposta de análise
+  // (Nível 1 ou Camada 2) que chegar depois de um id mais novo já existir
+  // é descartada, mesmo que o nome do arquivo seja idêntico.
+  let loadGeneration = 0;
 
   return {
     status: "idle",
@@ -70,9 +81,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     tier2Error: null,
     musicalKey: null,
     keyScale: null,
+    followPlayhead: true,
     engine,
 
     async loadFile(file: File) {
+      const myGeneration = ++loadGeneration;
       set({
         status: "validating",
         errorMessage: null,
@@ -123,8 +136,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         set({ analysisStatus: "analyzing" });
         analyzeTrack(channelData, audioBuffer.sampleRate, audioBuffer.duration)
           .then((result) => {
-            // guarda contra resposta atrasada de uma faixa que já foi trocada
-            if (get().fileName !== file.name) return;
+            // guarda robusta contra resposta atrasada de uma faixa já trocada
+            // (funciona mesmo se a mesma faixa for recarregada duas vezes)
+            if (myGeneration !== loadGeneration) return;
             set({
               analysisStatus: "done",
               chordSegments: result.chordSegments,
@@ -133,6 +147,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
             });
           })
           .catch((err) => {
+            if (myGeneration !== loadGeneration) return;
             console.warn("[analysis] Nível 1 falhou:", err);
             set({ analysisStatus: "error", analysisError: err instanceof Error ? err.message : String(err) });
           });
@@ -143,7 +158,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         set({ tier2Status: "analyzing" });
         analyzeTier2(file)
           .then((result) => {
-            if (get().fileName !== file.name) return;
+            if (myGeneration !== loadGeneration) return;
             set({
               tier2Status: "done",
               chordSegments: result.chordSegments,
@@ -154,6 +169,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
             });
           })
           .catch((err) => {
+            if (myGeneration !== loadGeneration) return;
             console.warn("[analysis] Camada 2 indisponível:", err);
             set({ tier2Status: "error", tier2Error: err instanceof Error ? err.message : String(err) });
           });
@@ -190,6 +206,39 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const next = !get().loopEnabled;
       get().engine.setLoopEnabled(next);
       set({ loopEnabled: next });
+    },
+
+    toggleFollowPlayhead() {
+      set({ followPlayhead: !get().followPlayhead });
+    },
+
+    reset() {
+      // invalida qualquer resposta de análise ainda em voo da faixa anterior
+      // (o AudioContext em si é reaproveitado — engine.stop() +
+      // loadFromArrayBuffer() com um buffer novo já funciona sem recriar o
+      // contexto, e recriar contexts de áudio sem necessidade é desperdício)
+      loadGeneration++;
+      get().engine.stop();
+      set({
+        status: "idle",
+        fileName: null,
+        duration: 0,
+        peaks: null,
+        errorMessage: null,
+        playbackRate: 1,
+        loopRegion: null,
+        loopEnabled: false,
+        analysisStatus: "idle",
+        analysisError: null,
+        chordSegments: [],
+        bpm: null,
+        beatGrid: [],
+        tier2Status: "idle",
+        tier2Error: null,
+        musicalKey: null,
+        keyScale: null,
+        followPlayhead: true,
+      });
     },
   };
 });

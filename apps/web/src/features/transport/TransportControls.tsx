@@ -15,6 +15,8 @@ export function TransportControls() {
   const loopEnabled = usePlayerStore((s) => s.loopEnabled);
   const toggleLoopEnabled = usePlayerStore((s) => s.toggleLoopEnabled);
   const setLoopRegion = usePlayerStore((s) => s.setLoopRegion);
+  const followPlayhead = usePlayerStore((s) => s.followPlayhead);
+  const toggleFollowPlayhead = usePlayerStore((s) => s.toggleFollowPlayhead);
 
   const isPlaying = playbackState === "playing";
 
@@ -47,6 +49,18 @@ export function TransportControls() {
             ))}
           </select>
         </label>
+
+        <button
+          type="button"
+          className={`transport__button transport__button--small ${
+            followPlayhead ? "transport__button--active" : ""
+          }`}
+          onClick={toggleFollowPlayhead}
+          aria-pressed={followPlayhead}
+          title="Recentraliza o zoom no cursor durante a reprodução"
+        >
+          Seguir cursor
+        </button>
 
         <TimeReadout />
       </div>

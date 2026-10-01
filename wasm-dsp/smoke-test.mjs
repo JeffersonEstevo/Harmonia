@@ -166,5 +166,51 @@ function check(label, condition) {
   );
 }
 
+// --- Teste 7: áudio longo (~4min, escala de música real) não deve travar
+// nem lançar erro de índice fora do range — regressão do bug relatado
+// pelo usuário em produção (causa raiz: alocação repetida dentro do loop
+// de frames, corrigida em analyzeFrames — ver docs/DECISIONS.md)
+{
+  const seconds = 4 * 60;
+  const n = Math.floor(SAMPLE_RATE * seconds);
+  const samples = new Float32Array(n);
+  const freqs = [55, 110, 165, 220, 330, 440, 660, 880, 1200, 1800];
+  for (let i = 0; i < n; i++) {
+    let v = 0;
+    for (const f of freqs) v += 0.05 * Math.sin((2 * Math.PI * f * i) / SAMPLE_RATE);
+    v += 0.15 * (Math.random() * 2 - 1); // ruído branco simula bateria/percussão
+    samples[i] = Math.max(-1, Math.min(1, v));
+  }
+
+  try {
+    const frames = dsp.analyzeFrames(samples, SAMPLE_RATE, FRAME_SIZE, HOP_SIZE);
+    const numFrames = frames.length / 14;
+    dsp.classifyChords(frames, numFrames);
+    dsp.estimateTempo(frames, numFrames, HOP_SIZE, SAMPLE_RATE, 60, 200);
+    check(`Áudio longo (4min, banda larga + ruído) processa sem erro (${numFrames} frames)`, true);
+  } catch (err) {
+    check(`Áudio longo (4min, banda larga + ruído) processa sem erro — ERRO: ${err.message}`, false);
+  }
+}
+
+// --- Teste 8: sample rates diferentes de 44100 (comum em áudio real) não devem quebrar
+{
+  let allOk = true;
+  for (const sr of [48000, 22050, 32000]) {
+    const n = Math.floor(sr * 8);
+    const samples = new Float32Array(n);
+    for (let i = 0; i < n; i++) samples[i] = 0.3 * Math.sin((2 * Math.PI * 220 * i) / sr);
+    try {
+      const frames = dsp.analyzeFrames(samples, sr, FRAME_SIZE, HOP_SIZE);
+      const numFrames = frames.length / 14;
+      dsp.classifyChords(frames, numFrames);
+      dsp.estimateTempo(frames, numFrames, HOP_SIZE, sr, 60, 200);
+    } catch {
+      allOk = false;
+    }
+  }
+  check("Sample rates 48000/22050/32000Hz processam sem erro", allOk);
+}
+
 console.log(`\n${failures === 0 ? "Todos os testes passaram." : `${failures} teste(s) falharam.`}`);
 process.exit(failures === 0 ? 0 : 1);

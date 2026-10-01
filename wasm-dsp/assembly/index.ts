@@ -101,6 +101,11 @@ export function analyzeFrames(
   const imag = new Float64Array(frameSize);
   const prevMagnitude = new Float64Array(frameSize / 2);
   const magnitude = new Float64Array(frameSize / 2);
+  // alocado UMA VEZ fora do loop e resetado a cada frame — antes era
+  // recriado a cada iteração (milhares de vezes numa música real), o que
+  // sobrecarrega o coletor de lixo do AssemblyScript o bastante pra causar
+  // um "Index out of range" espúrio em faixas longas (ver docs/DECISIONS.md).
+  const chroma = new Float64Array(12);
 
   const binHz = f64(sampleRate) / f64(frameSize);
 
@@ -116,7 +121,7 @@ export function analyzeFrames(
 
     fft(real, imag);
 
-    const chroma = new Float64Array(12);
+    chroma.fill(0.0);
     let flux: f64 = 0.0;
 
     for (let k = 1; k < frameSize / 2; k++) {

@@ -157,6 +157,7 @@ export function WaveformCanvas() {
   const engine = usePlayerStore((s) => s.engine);
   const seek = usePlayerStore((s) => s.seek);
   const playbackState = usePlayerStore((s) => s.playbackState);
+  const followPlayhead = usePlayerStore((s) => s.followPlayhead);
   const loopRegion = usePlayerStore((s) => s.loopRegion);
   const setLoopRegion = usePlayerStore((s) => s.setLoopRegion);
   const chordSegments = usePlayerStore((s) => s.chordSegments);
@@ -408,6 +409,33 @@ export function WaveformCanvas() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const playheadSample = engine.getCurrentTime() * peaks.sampleRate;
+
+    // "Seguir cursor": durante a reprodução, se o playhead sair da faixa
+    // central confortável da janela visível, recentraliza (mantendo o
+    // mesmo nível de zoom) — só dispara ocasionalmente (não a cada frame),
+    // e nunca durante uma interação manual do usuário (scrub/loop/etc.).
+    if (followPlayhead && playbackState === "playing" && !dragModeRef.current) {
+      const { start, end } = viewRef.current;
+      const span = end - start;
+      const comfortStart = start + span * 0.15;
+      const comfortEnd = start + span * 0.85;
+
+      if (playheadSample < comfortStart || playheadSample > comfortEnd) {
+        let newStart = playheadSample - span / 2;
+        let newEnd = newStart + span;
+        if (newStart < 0) {
+          newEnd -= newStart;
+          newStart = 0;
+        }
+        if (newEnd > peaks.totalSamples) {
+          newStart -= newEnd - peaks.totalSamples;
+          newEnd = peaks.totalSamples;
+        }
+        const newView = { start: Math.max(0, newStart), end: newEnd };
+        viewRef.current = newView; // evita 1 frame de atraso até o próximo render
+        setView(newView);
+      }
+    }
 
     drawWaveform(
       ctx,
