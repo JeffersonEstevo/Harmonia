@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import { config } from "./config/index.js";
 import { healthRouter } from "./routes/health.js";
+import { authRouter } from "./routes/auth.js";
+import { tracksRouter } from "./routes/tracks.js";
 
 /**
  * Exportado separado de index.ts para poder ser importado nos testes
@@ -14,10 +16,11 @@ export function createApp() {
   app.use(express.json());
 
   app.use(healthRouter);
+  app.use("/api", authRouter);
+  app.use("/api", tracksRouter);
 
-  // outras rotas de domínio (tracks, analysis, share) entram na Fase 4,
-  // quando o upload/análise forem implementados — ver docs/PROGRESS.md
-  // e docs/SPEC.md §6.6 para o contrato completo de API planejado.
+  // rotas de compartilhamento (share links) entram na Fase 6 — ver
+  // docs/SPEC.md §6.6 para o contrato completo de API planejado.
 
   return app;
 }

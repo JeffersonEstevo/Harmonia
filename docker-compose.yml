@@ -20,6 +20,34 @@ services:
       - PORT=4000
       - NODE_ENV=development
       - CORS_ORIGIN=http://localhost:5173
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/harmonia
+      - JWT_SECRET=dev-secret-troque-em-producao
+      - STORAGE_DIR=/app/storage
+      # Google OAuth é opcional — sem essas duas, /api/auth/google responde
+      # 501 em vez de quebrar (ver services/api-gateway/.env.example)
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+    volumes:
+      - audio-storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=harmonia
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
 
   analysis-service:
     build:
@@ -27,3 +55,7 @@ services:
       dockerfile: services/analysis-service/Dockerfile
     ports:
       - "8001:8001"
+
+volumes:
+  postgres-data:
+  audio-storage:

@@ -1,8 +1,17 @@
 import { createApp } from "./app.js";
 import { config } from "./config/index.js";
+import { runMigrations } from "./db/migrate.js";
 
-const app = createApp();
+async function main() {
+  await runMigrations();
 
-app.listen(config.port, () => {
-  console.info(`[api-gateway] rodando em http://localhost:${config.port} (${config.nodeEnv})`);
+  const app = createApp();
+  app.listen(config.port, () => {
+    console.info(`[api-gateway] rodando em http://localhost:${config.port} (${config.nodeEnv})`);
+  });
+}
+
+main().catch((err) => {
+  console.error("[api-gateway] falha ao iniciar:", err);
+  process.exit(1);
 });
