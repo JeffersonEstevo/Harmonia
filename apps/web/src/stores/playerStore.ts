@@ -13,6 +13,15 @@ import { analyzeTier2 } from "../lib/analysis/tier2Client";
 export type LoadStatus = "idle" | "validating" | "decoding" | "ready" | "error";
 export type AnalysisStatus = "idle" | "analyzing" | "done" | "error";
 
+/** Análise já persistida (vinda da biblioteca) — evita reanalisar ao reabrir */
+export interface SavedAnalysis {
+  chordSegments: ChordSegment[];
+  bpm: number | null;
+  beatGrid: number[];
+  key: string | null;
+  keyScale: string | null;
+}
+
 interface PlayerState {
   status: LoadStatus;
   fileName: string | null;
@@ -37,9 +46,16 @@ interface PlayerState {
 
   followPlayhead: boolean;
 
+  /** arquivo original carregado — necessário pra salvar na biblioteca */
+  currentFile: File | null;
+  /** id da faixa na biblioteca, se a faixa atual já foi salva/aberta de lá */
+  savedTrackId: string | null;
+
   engine: AudioEngine;
 
   loadFile: (file: File) => Promise<void>;
+  loadSavedTrack: (file: File, saved: SavedAnalysis, savedTrackId: string) => Promise<void>;
+  markSaved: (savedTrackId: string) => void;
   reset: () => void;
   play: () => void;
   pause: () => void;
@@ -82,6 +98,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     musicalKey: null,
     keyScale: null,
     followPlayhead: true,
+    currentFile: null,
+    savedTrackId: null,
     engine,
 
     async loadFile(file: File) {
@@ -90,6 +108,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         status: "validating",
         errorMessage: null,
         fileName: file.name,
+        currentFile: file,
+        savedTrackId: null,
         analysisStatus: "idle",
         analysisError: null,
         chordSegments: [],
@@ -212,6 +232,64 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       set({ followPlayhead: !get().followPlayhead });
     },
 
+    /**
+     * Reabre uma faixa da biblioteca: decodifica o áudio (necessário pra
+     * waveform/reprodução) mas NÃO roda Nível 1 nem Camada 2 — a análise já
+     * está salva, só hidrata o estado com ela.
+     */
+    async loadSavedTrack(file: File, saved: SavedAnalysis, savedTrackId: string) {
+      const myGeneration = ++loadGeneration;
+      set({
+        status: "decoding",
+        errorMessage: null,
+        fileName: file.name,
+        currentFile: file,
+        savedTrackId,
+        analysisStatus: "idle",
+        analysisError: null,
+        tier2Status: "idle",
+        tier2Error: null,
+        chordSegments: [],
+        bpm: null,
+        beatGrid: [],
+        musicalKey: null,
+        keyScale: null,
+      });
+
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const audioBuffer = await engine.loadFromArrayBuffer(arrayBuffer);
+        if (myGeneration !== loadGeneration) return;
+
+        const peaks = buildPeakPyramid(audioBuffer.getChannelData(0), audioBuffer.sampleRate);
+        set({
+          status: "ready",
+          duration: audioBuffer.duration,
+          peaks,
+          loopRegion: null,
+          loopEnabled: false,
+          playbackRate: 1,
+          chordSegments: saved.chordSegments,
+          bpm: saved.bpm,
+          beatGrid: saved.beatGrid,
+          musicalKey: saved.key,
+          keyScale: saved.keyScale,
+          // marcadas como concluídas: o resultado salvo veio da Camada 2
+          analysisStatus: "done",
+          tier2Status: "done",
+        });
+      } catch {
+        set({
+          status: "error",
+          errorMessage: "Não foi possível abrir esta faixa salva — o áudio pode estar corrompido.",
+        });
+      }
+    },
+
+    markSaved(savedTrackId: string) {
+      set({ savedTrackId });
+    },
+
     reset() {
       // invalida qualquer resposta de análise ainda em voo da faixa anterior
       // (o AudioContext em si é reaproveitado — engine.stop() +
@@ -238,6 +316,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         musicalKey: null,
         keyScale: null,
         followPlayhead: true,
+        currentFile: null,
+        savedTrackId: null,
       });
     },
   };

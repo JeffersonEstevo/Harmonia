@@ -43,11 +43,15 @@ harmonia/
 ├── services/
 │   ├── api-gateway/                  # Node — BFF/Auth/orquestração (não faz análise pesada)
 │   │   ├── src/
-│   │   │   ├── routes/
-│   │   │   ├── controllers/
-│   │   │   ├── middleware/           # auth, rate-limit, validação
-│   │   │   ├── services/             # lógica de negócio (chama storage, queue, db)
-│   │   │   ├── websocket/            # push de progresso de análise
+│   │   │   ├── routes/               # health, auth, tracks
+│   │   │   ├── controllers/          # authController, googleAuthController, trackController
+│   │   │   ├── middleware/           # requireAuth (JWT); rate-limit/validação ainda não
+│   │   │   ├── auth/                 # password (bcrypt), jwt, userRepository
+│   │   │   ├── tracks/               # trackRepository (tracks + análise, transacional)
+│   │   │   ├── storage/              # localStorage.ts — áudio em disco (troca futura: S3)
+│   │   │   ├── db/                   # pool.ts, migrate.ts, migrations/*.sql
+│   │   │   ├── services/             # (vazio por ora)
+│   │   │   ├── websocket/            # (vazio por ora — hoje o WS é do analysis-service)
 │   │   │   ├── config/
 │   │   │   └── index.ts
 │   │   ├── test/

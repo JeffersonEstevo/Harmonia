@@ -1,0 +1,118 @@
+.auth-panel {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.auth-panel__name {
+  color: var(--text-muted);
+}
+
+.auth-panel__button {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.auth-panel__button:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.auth-panel__button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.auth-panel__button--active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: min(280px, 90vw);
+  padding: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.auth-form input {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.auth-form input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.auth-form__tabs {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.auth-form__tabs button {
+  flex: 1;
+  padding: 0.35rem;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.auth-form__tab--active {
+  color: var(--text) !important;
+  border-bottom-color: var(--accent) !important;
+}
+
+.auth-form__error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.78rem;
+}
+
+.auth-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.auth-form__google {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  text-decoration: underline;
+}
+
+.auth-form__cancel {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+@media (max-width: 767px) {
+  .auth-panel {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

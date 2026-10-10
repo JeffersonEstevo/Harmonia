@@ -1,0 +1,114 @@
+.library {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.library__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.library__empty {
+  margin: 0;
+  padding: 2rem 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.library__error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.85rem;
+}
+
+.library__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.library__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.library__item:last-child {
+  border-bottom: none;
+}
+
+.library__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.library__name {
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library__meta {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.library__rename-input {
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.library__actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.4rem;
+}
+
+.library__actions button {
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.library__actions button:hover:not(:disabled) {
+  border-color: var(--text-muted);
+  color: var(--text);
+}
+
+.library__actions button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.library__delete:hover:not(:disabled) {
+  border-color: var(--danger) !important;
+  color: var(--danger) !important;
+}
+
+@media (max-width: 767px) {
+  .library__item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

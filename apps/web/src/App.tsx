@@ -4,6 +4,10 @@ import { UploadZone } from "./features/upload/UploadZone";
 import { WaveformCanvas } from "./features/waveform/WaveformCanvas";
 import { TransportControls } from "./features/transport/TransportControls";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
+import { AuthPanel } from "./features/auth/AuthPanel";
+import { LibraryView } from "./features/library/LibraryView";
+import { SaveTrackButton } from "./features/library/SaveTrackButton";
+import { useAuthStore } from "./stores/authStore";
 import { fetchHealth } from "./lib/apiClient";
 import "./App.css";
 
@@ -84,27 +88,54 @@ function App() {
   const status = usePlayerStore((s) => s.status);
   const fileName = usePlayerStore((s) => s.fileName);
   const reset = usePlayerStore((s) => s.reset);
+  const token = useAuthStore((s) => s.token);
+  const adoptToken = useAuthStore((s) => s.adoptToken);
   const isReady = status === "ready";
 
-  useKeyboardShortcuts(isReady);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+
+  useKeyboardShortcuts(isReady && !libraryOpen);
+
+  // Callback do login com Google: o gateway redireciona pra /?token=...
+  // — captura o token, guarda na sessão e limpa a URL.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get("token");
+    if (urlToken) {
+      adoptToken(urlToken);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [adoptToken]);
+
+  // se o usuário sair da conta com a biblioteca aberta, fecha a biblioteca
+  const showLibrary = libraryOpen && Boolean(token);
 
   return (
     <div className="app-shell">
       <header className="app-header">
         <h1 className="app-header__title">Harmonia</h1>
         <GatewayStatusBadge />
+        <AuthPanel
+          libraryOpen={showLibrary}
+          onOpenLibrary={() => setLibraryOpen((open) => !open)}
+        />
       </header>
 
       <main className="app-main">
-        {!isReady && <UploadZone />}
+        {showLibrary && <LibraryView onTrackOpened={() => setLibraryOpen(false)} />}
 
-        {isReady && (
+        {!showLibrary && !isReady && <UploadZone />}
+
+        {!showLibrary && isReady && (
           <section className="track-view">
             <div className="track-view__header">
               <p className="track-view__filename">{fileName}</p>
-              <button type="button" className="track-view__new-button" onClick={reset}>
-                Nova faixa
-              </button>
+              <div className="track-view__actions">
+                <SaveTrackButton />
+                <button type="button" className="track-view__new-button" onClick={reset}>
+                  Nova faixa
+                </button>
+              </div>
             </div>
             <AnalysisStatusLine />
             <WaveformCanvas />

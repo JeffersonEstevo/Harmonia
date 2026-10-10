@@ -83,10 +83,12 @@ Cada fase é pensada para ser pedida a uma LLM em pedaços pequenos (uma tarefa 
 - [x] Refinamento in-place do overlay (Tier 1 → Camada 2 substitui o resultado quando chega; sem animação de cross-fade ainda — troca instantânea, ver DECISIONS.md se quiser essa polish depois)
 
 ### Fase 5 — Contas & Persistência
-- [ ] Auth (OAuth2/OIDC — Google/Apple + email/senha)
-- [ ] Banco relacional (Postgres): users, tracks, analyses, chord_events, key_segments
-- [ ] Biblioteca do usuário (listar/renomear/organizar faixas salvas)
-- [ ] Política de retenção para uploads anônimos (purge automático)
+- [x] Auth email/senha (bcrypt + JWT) — testado de ponta a ponta contra Postgres real
+- [x] Google OAuth — **código pronto, NÃO validado com o Google real** (precisa de credenciais suas; ver `.env.example` e DECISIONS.md). Sem credenciais responde 501 (testado)
+- [ ] ~~Apple Sign In~~ — adiado (conta paga + client secret JWT; ver DECISIONS.md)
+- [x] Banco relacional (Postgres): users, tracks, analyses, chord_events, key_segments, tempo_profiles, share_links (esta última só o schema, uso na Fase 6)
+- [x] Biblioteca do usuário: salvar (áudio + análise), listar, abrir sem reanalisar, renomear, apagar. "Organizar em pastas/playlists" **não** feito (só lista plana)
+- [ ] ~~Política de retenção para uploads anônimos~~ — não se aplica na arquitetura atual (anônimo nunca persiste nada; ver DECISIONS.md)
 
 ### Fase 6 — Export & Compartilhamento
 - [ ] Export de chord chart em PDF
@@ -132,14 +134,13 @@ Preencha os colchetes antes de colar. Quanto mais específica a "PRÓXIMA TAREFA
 
 > **Atualize esta seção a cada sessão.** É a parte que realmente muda com o tempo.
 
-- **Fase atual:** Fase 4 concluída (com escopo reduzido documentado — ver DECISIONS.md) — pronta para Fase 5
-- **Última tarefa concluída:** `services/analysis-service` (Python/FastAPI/essentia) — reconhecimento de acordes, tonalidade e tempo com precisão bem maior que o Nível 1. Validado com um MP3 real (gerado via ffmpeg) reproduzindo a progressão Bm-G-D-A reportada pelo usuário: **os 4 acordes corretos** + tonalidade Ré maior (94% confiança). Testado ponta a ponta via HTTP (`POST /analyze` + `GET /jobs/{id}`) e via WebSocket (`/ws/jobs/{id}`), não só chamada direta da função Python. 4/4 testes automatizados passando (`pytest`). Frontend (`apps/web`) dispara a Camada 2 em paralelo com o Nível 1 e substitui o overlay/BPM/tonalidade quando o resultado (mais preciso) chega — indicador "refinando com o servidor…" na tela.
-- **Próxima tarefa:** Fase 5 — Auth, Postgres, biblioteca salva. Também é o momento natural de revisitar as simplificações desta fase (fila de jobs real via Redis Streams, S3 pra áudio, roteamento via api-gateway) — ver a lista de decisões marcadas "adiado pra Fase 5" no DECISIONS.md
+- **Fase atual:** Fase 5 implementada e validada no que é testável aqui; **pendente de validação manual sua** no navegador (UI de login/biblioteca) e do Google OAuth (precisa de credenciais)
+- **Próxima tarefa:** Validar a Fase 5 no navegador (ver checklist de teste manual na mensagem de entrega) → depois Fase 6 (Export & Compartilhamento: PDF/PNG/JSON, links de compartilhamento — a tabela `share_links` já existe)
 - **Bloqueios/pendências:** nenhum novo. Seguem valendo as notas das Fases 2-3 (AudioWorklet e wasm-dsp sem cobertura automatizada no CI do monorepo). Nota nova: os testes do `analysis-service` (`pytest`) também rodam fora do `npm test` do monorepo raiz (é Python, não Node) — rodar manualmente com `cd services/analysis-service && pytest tests/ -v`. Limitação de precisão do Nível 1 documentada na Fase 3 segue existindo (é esperado — o Nível 1 continua sendo só o "rascunho rápido"; a Camada 2 é quem resolve de verdade agora)
 - **Correção pós-Fase 4 (2026-09-27):** usuário reportou "Index out of range" no Nível 1 em faixas reais + a tela escondendo o resultado da Camada 2 quando isso acontecia. Corrigido: alocação repetida dentro do loop de `analyzeFrames` (suspeito mais forte pro crash, não 100% confirmado — não reproduzido deterministicamente mesmo com testes de estresse extensos, mas é uma correção legítima e ficou como teste de regressão permanente) + `AnalysisStatusLine` agora mostra o melhor resultado disponível entre as duas camadas, não trava em "indisponível" por causa só do Nível 1
 - **Confirmado funcionando (2026-09-28):** usuário validou com faixa real — "118 BPM · D · 123 acordes · refinado". Fase 4 considerada estável.
 - **Correções de UX (2026-09-28):** (1) não era possível carregar uma segunda faixa sem recarregar a página — adicionado botão "Nova faixa" + ação `reset()`; guarda de resposta de análise atrasada trocada de `fileName` pra um contador de geração de carregamento, mais robusto. (2) "Seguir cursor" — a janela de zoom agora recentraliza automaticamente no playhead durante a reprodução (toggle, ligado por padrão).
-- **Última atualização:** 2026-09-28
+- **Última atualização:** 2026-10-07
 
 ---
 

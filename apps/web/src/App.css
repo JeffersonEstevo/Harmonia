@@ -120,3 +120,25 @@
     margin-bottom: 1.5rem;
   }
 }
+
+.save-track__hint,
+.save-track__saved {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.save-track__saved {
+  color: var(--accent);
+}
+
+.save-track__error {
+  font-size: 0.75rem;
+  color: var(--danger);
+}
+
+.track-view__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}

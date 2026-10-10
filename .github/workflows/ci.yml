@@ -8,6 +8,28 @@ on:
 jobs:
   lint-test-build:
     runs-on: ubuntu-latest
+
+    # Postgres de verdade pros testes de integração de auth/tracks do
+    # api-gateway (sem isso eles são pulados — ver services/api-gateway/test)
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: harmonia_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/harmonia_test
+      STORAGE_DIR: ${{ runner.temp }}/harmonia-storage
+
     steps:
       - uses: actions/checkout@v4
 

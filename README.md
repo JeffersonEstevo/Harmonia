@@ -36,6 +36,26 @@ make dev-gateway   # http://localhost:4000/health
 make dev-web       # http://localhost:5173
 ```
 
+## Contas e biblioteca (Fase 5)
+
+O `api-gateway` agora precisa de um **PostgreSQL**. Com Docker (`make dev` /
+`docker compose up --build`) ele já sobe sozinho, e as migrações rodam na
+inicialização do gateway.
+
+Sem Docker, suba um Postgres e aponte `DATABASE_URL` em
+`services/api-gateway/.env` (ver `.env.example`):
+
+```bash
+createdb harmonia   # exemplo
+```
+
+- Criar conta / entrar: botão **Entrar** no topo da tela.
+- **Login com Google é opcional** e só funciona com credenciais suas
+  (`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`) — passo a passo no `.env.example`.
+  Sem elas, o link responde "não configurado".
+- Antes de usar fora do seu computador, **troque `JWT_SECRET`** e as senhas do Postgres.
+- Os áudios salvos ficam no volume Docker `audio-storage` (ou em `STORAGE_DIR`).
+
 ## Comandos úteis
 
 | Comando | O que faz |
