@@ -9,6 +9,7 @@ import {
   type ChordEventInput,
 } from "../tracks/trackRepository.js";
 import { deleteAudioFile, readAudioFile, saveAudioFile } from "../storage/localStorage.js";
+import { detectAudioFormat } from "../storage/audioFormat.js";
 
 function toPublicTrack(track: {
   id: string;
@@ -26,6 +27,14 @@ function toPublicTrack(track: {
     uploadedAt: track.uploaded_at,
     visibility: track.visibility,
   };
+}
+
+/** Resposta de áudio com headers defensivos (compartilhada com as rotas públicas de share). */
+export function sendAudio(res: Response, mime: string, buffer: Buffer): void {
+  res.setHeader("Content-Type", mime);
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Content-Disposition", "attachment");
+  res.send(buffer);
 }
 
 export async function saveTrack(req: Request, res: Response): Promise<void> {
@@ -50,8 +59,15 @@ export async function saveTrack(req: Request, res: Response): Promise<void> {
     return;
   }
 
+  // valida pelo CONTEÚDO — o Content-Type/nome enviados pelo cliente não
+  // são confiáveis (e viram header de resposta/nome de arquivo depois)
+  const format = detectAudioFormat(file.buffer);
+  if (!format) {
+    res.status(415).json({ error: "Formato de áudio não reconhecido (aceitos: MP3, WAV, FLAC, OGG)" });
+    return;
+  }
+
   const ownerId = req.user!.sub;
-  const storagePath = await saveAudioFile(ownerId, file.originalname, file.buffer);
 
   let chordEvents: ChordEventInput[] = [];
   try {
@@ -61,12 +77,14 @@ export async function saveTrack(req: Request, res: Response): Promise<void> {
     return;
   }
 
+  const storagePath = await saveAudioFile(ownerId, format.ext, file.buffer);
+
   const track = await createTrackWithAnalysis({
     ownerId,
     title: body.title,
     storagePath,
     durationSec: Number(body.durationSec),
-    originalFormat: file.mimetype,
+    originalFormat: format.mime,
     modelVersion: "tier2-essentia-v1",
     chordEvents,
     key: body.key ?? null,
@@ -102,9 +120,7 @@ export async function getTrackAudio(req: Request, res: Response): Promise<void> 
     return;
   }
 
-  const buffer = await readAudioFile(track.storage_path);
-  res.setHeader("Content-Type", track.original_format);
-  res.send(buffer);
+  sendAudio(res, track.original_format, await readAudioFile(track.storage_path));
 }
 
 export async function patchTrack(req: Request, res: Response): Promise<void> {

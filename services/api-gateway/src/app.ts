@@ -4,6 +4,7 @@ import { config } from "./config/index.js";
 import { healthRouter } from "./routes/health.js";
 import { authRouter } from "./routes/auth.js";
 import { tracksRouter } from "./routes/tracks.js";
+import { sharedRouter } from "./routes/shared.js";
 
 /**
  * Exportado separado de index.ts para poder ser importado nos testes
@@ -17,10 +18,8 @@ export function createApp() {
 
   app.use(healthRouter);
   app.use("/api", authRouter);
+  app.use("/api", sharedRouter);
   app.use("/api", tracksRouter);
-
-  // rotas de compartilhamento (share links) entram na Fase 6 — ver
-  // docs/SPEC.md §6.6 para o contrato completo de API planejado.
 
   return app;
 }

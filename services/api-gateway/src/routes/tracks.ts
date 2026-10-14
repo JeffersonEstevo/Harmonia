@@ -1,6 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { requireAuth } from "../middleware/requireAuth.js";
+import { createShare, listShares, revokeShare } from "../controllers/shareController.js";
 import {
   getTrack,
   getTrackAudio,
@@ -17,7 +18,7 @@ const upload = multer({
 
 export const tracksRouter = Router();
 
-tracksRouter.use(requireAuth); // todas as rotas de tracks exigem login
+tracksRouter.use("/tracks", requireAuth); // todas as rotas de tracks exigem login (e SÓ elas)
 
 tracksRouter.post("/tracks", upload.single("file"), saveTrack);
 tracksRouter.get("/tracks", listTracks);
@@ -25,3 +26,7 @@ tracksRouter.get("/tracks/:id", getTrack);
 tracksRouter.get("/tracks/:id/audio", getTrackAudio);
 tracksRouter.patch("/tracks/:id", patchTrack);
 tracksRouter.delete("/tracks/:id", removeTrack);
+
+tracksRouter.post("/tracks/:id/shares", createShare);
+tracksRouter.get("/tracks/:id/shares", listShares);
+tracksRouter.delete("/tracks/:id/shares/:shareId", revokeShare);

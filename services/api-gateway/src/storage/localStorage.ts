@@ -10,10 +10,9 @@ import { config } from "../config/index.js";
 
 export async function saveAudioFile(
   ownerId: string,
-  originalName: string,
+  ext: string, // extensão CANÔNICA (de detectAudioFormat) — nunca derivada do nome enviado
   buffer: Buffer,
 ): Promise<string> {
-  const ext = originalName.includes(".") ? originalName.split(".").pop() : "bin";
   const dir = join(config.storageDir, ownerId);
   await mkdir(dir, { recursive: true });
 
