@@ -3,6 +3,7 @@ import { usePlayerStore } from "../../stores/playerStore";
 import { pickLevelForZoom, type PeakPyramid } from "../../lib/waveform/peaks";
 import { useAnimationFrame } from "../../hooks/useAnimationFrame";
 import { WaveformMinimap } from "./WaveformMinimap";
+import { chordColor } from "../../lib/chords/chordColor";
 import "./WaveformCanvas.css";
 
 interface ViewWindow {
@@ -13,20 +14,6 @@ interface ViewWindow {
 const MIN_VISIBLE_SAMPLES = 2_000; // trava de zoom máximo
 const EDGE_GRAB_PX = 8; // distância em pixels pra "agarrar" a borda do loop
 const CHORD_STRIP_HEIGHT = 22; // faixa reservada embaixo do canvas pros blocos de acorde
-
-const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-
-/** Cor por fundamental do acorde (12 matizes) — a qualidade (m/7) fica só no texto,
- * cor nunca é o único codificador de informação (docs/SPEC.md §4.1 acessibilidade). */
-function chordColor(chordSymbol: string): string {
-  const root = chordSymbol.startsWith("C#") || chordSymbol.startsWith("D#") ||
-    chordSymbol.startsWith("F#") || chordSymbol.startsWith("G#") || chordSymbol.startsWith("A#")
-    ? chordSymbol.slice(0, 2)
-    : chordSymbol.slice(0, 1);
-  const rootIndex = Math.max(0, NOTE_NAMES.indexOf(root));
-  const hue = (rootIndex * 360) / 12;
-  return `hsla(${hue}, 45%, 58%, 0.55)`;
-}
 
 function drawWaveform(
   ctx: CanvasRenderingContext2D,
